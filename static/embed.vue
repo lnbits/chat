@@ -140,6 +140,11 @@
 </template>
 
 <style>
+html,
+body {
+  overflow: hidden;
+}
+
 .q-header {
   display: none !important;
 }
@@ -154,6 +159,7 @@
 
 .chat-embed {
   height: 100%;
+  overflow: hidden;
 }
 
 .chat-embed-launcher-wrap {

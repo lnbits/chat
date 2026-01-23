@@ -114,11 +114,12 @@ window.PageChatEmbed = {
       )
       this.chatId = data.id
       this.chatData = data
+    },
+
+    updateChatUrl() {
+      if (this.$route?.params?.chat) return
       const query = window.location.search || ''
       const target = `/chat/embed/${this.categoriesId}/${this.chatId}${query}`
-      if (this.$router) {
-        this.$router.replace(target).catch(() => {})
-      }
       window.history.replaceState({}, '', target)
     },
 
@@ -146,6 +147,7 @@ window.PageChatEmbed = {
           null,
           payload
         )
+        this.updateChatUrl()
         if (data.pending && data.payment_request) {
           this.pendingAmount = data.amount || 0
           this.paymentDialog = {

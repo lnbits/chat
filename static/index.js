@@ -422,6 +422,12 @@ window.PageChat = {
       this.$q.notify({type: 'positive', message: 'Embed code copied'})
     },
 
+    copyPublicCategoryUrl(category) {
+      const url = `${window.location.origin}/chat/${category.id}`
+      this.copyText(url)
+      this.$q.notify({type: 'positive', message: 'Public URL copied'})
+    },
+
     dateFromNow(date) {
       return moment(date).fromNow()
     },

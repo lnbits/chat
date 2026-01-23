@@ -44,6 +44,17 @@
                     flat
                     dense
                     size="xs"
+                    icon="content_copy"
+                    color="grey"
+                    class="q-mr-sm"
+                    @click.stop="copyPublicCategoryUrl(props.row)"
+                  >
+                    <q-tooltip>Copy public URL</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    flat
+                    dense
+                    size="xs"
                     icon="code"
                     color="grey"
                     class="q-mr-sm"

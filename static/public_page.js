@@ -95,10 +95,11 @@ window.PageChatPublic = {
       )
       this.chatId = data.id
       this.chatData = data
+    },
+
+    updateChatUrl() {
+      if (this.$route?.params?.chat) return
       const target = `/chat/${this.categoriesId}/${this.chatId}`
-      if (this.$router) {
-        this.$router.replace(target).catch(() => {})
-      }
       window.history.replaceState({}, '', target)
     },
 
@@ -126,6 +127,7 @@ window.PageChatPublic = {
           null,
           payload
         )
+        this.updateChatUrl()
         if (data.pending && data.payment_request) {
           this.pendingAmount = data.amount || 0
           this.paymentDialog = {
