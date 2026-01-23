@@ -17,7 +17,7 @@
           <q-badge v-if="chatData.resolved" color="green">resolved</q-badge>
         </q-card-section>
         <q-separator></q-separator>
-        <q-card-section class="q-pa-none">
+        <q-card-section class="q-pa-none chat-public-body">
           <div class="chat-container" ref="chatScroll">
             <div class="chat-messages q-pa-md">
               <q-chat-message
@@ -34,13 +34,16 @@
                 </div>
                 <div v-else v-text="message.message"></div>
               </q-chat-message>
-              <div v-if="!chatData.messages.length" class="text-caption text-grey">
+              <div
+                v-if="!chatData.messages.length"
+                class="text-caption text-grey"
+              >
                 Start the conversation.
               </div>
             </div>
           </div>
           <q-separator></q-separator>
-          <div class="q-pt-sm q-px-md q-pb-md">
+          <div class="chat-input q-pt-sm q-px-md q-pb-md">
             <q-form @submit="sendMessage" class="row items-center">
               <q-input
                 dense
@@ -79,17 +82,6 @@
     </div>
 
     <div class="col-12 col-lg-4 q-gutter-y-md">
-      <q-card>
-        <q-card-section>
-          <h6 class="q-mb-sm q-mt-none">
-            <span v-text="publicPageData.name"></span>
-          </h6>
-          <p class="q-my-none text-caption text-grey">
-            <span v-if="publicPageData.paid">Paid support enabled.</span>
-            <span v-else>Free chat support.</span>
-          </p>
-        </q-card-section>
-      </q-card>
       <q-card>
         <q-card-section>
           <div class="text-subtitle2">Participants</div>
@@ -172,3 +164,24 @@
     </q-dialog>
   </div>
 </template>
+
+<style>
+.chat-public-body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.chat-public-body .chat-container {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.chat-public-body .chat-input {
+  flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  background: var(--q-dark, #1d1f23);
+}
+</style>

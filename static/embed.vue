@@ -10,7 +10,7 @@
         @click="toggleMinimize"
       ></q-btn>
     </div>
-    <div v-else>
+    <div v-else class="chat-embed-body">
       <div class="chat-container" ref="chatScroll">
         <div class="chat-messages q-pa-md">
           <q-chat-message
@@ -33,7 +33,7 @@
         </div>
       </div>
       <q-separator></q-separator>
-      <div class="q-pt-sm q-px-md q-pb-md">
+      <div class="chat-input q-pt-sm q-px-md q-pb-md">
         <q-form @submit="sendMessage" class="row items-center">
           <q-input
             dense
@@ -158,8 +158,27 @@ body {
 }
 
 .chat-embed {
-  height: 100%;
+  height: 100vh;
   overflow: hidden;
+}
+
+.chat-embed-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chat-container {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.chat-input {
+  flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  background: var(--q-dark, #1d1f23);
 }
 
 .chat-embed-launcher-wrap {
