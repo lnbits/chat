@@ -1,0 +1,23 @@
+{
+  "name": "Chat",
+  "short_description": "Paid chat and support",
+  "tile": "/chat/static/image/chat.png",
+  "version": "0.1.0",
+  "min_lnbits_version": "1.4.2",
+  "contributors": [
+    {
+      "name": "LNbits community",
+      "uri": "https://t.me/lnbits",
+      "role": "Emotional support"
+    }
+  ],
+  "images": [
+    {
+      "uri": "https://raw.githubusercontent.com/lnbits/chat/main/static/image/1.png",
+      "link": "https://www.youtube.com/embed/SkkIwO_X4i4?si=9JJh1Fc6GfHDZK6b"
+    }
+  ],
+  "description_md": "https://raw.githubusercontent.com/lnbits/chat/main/description.md",
+  "terms_and_conditions_md": "https://raw.githubusercontent.com/lnbits/chat/main/toc.md",
+  "license": "MIT"
+}
