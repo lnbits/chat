@@ -11,7 +11,10 @@ window.PageChatEmbed = {
         id: '',
         participants: [],
         messages: [],
-        resolved: false
+        resolved: false,
+        balance: 0,
+        claimed_by_id: null,
+        claimed_by_name: null
       },
       publicPageData: {},
       sending: false,
@@ -25,8 +28,12 @@ window.PageChatEmbed = {
       showTipDialog: false,
       tipAmount: null,
       chatSocket: null,
+      balanceSocket: null,
       isMinimized: false,
-      launcherText: 'Chat to us'
+      launcherText: 'Chat to us',
+      lnurlPay: '',
+      lnurlDialog: false,
+      authUser: null
     }
   },
   watch: {
@@ -86,6 +93,9 @@ window.PageChatEmbed = {
         } else if (user) {
           this.participantName = 'anon'
         }
+        if (user?.id) {
+          this.authUser = user
+        }
       } catch (_) {
         // ignore if not logged in
       }
@@ -114,6 +124,7 @@ window.PageChatEmbed = {
       )
       this.chatId = data.id
       this.chatData = data
+      this.updateChatUrl()
     },
 
     updateChatUrl() {
@@ -129,6 +140,47 @@ window.PageChatEmbed = {
         `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/public`
       )
       this.chatData = data
+    },
+
+    async toggleClaim() {
+      if (!this.authUser) return
+      try {
+        const {data} = await LNbits.api.request(
+          'POST',
+          `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/public/claim`,
+          null
+        )
+        this.chatData = data
+      } catch (error) {
+        LNbits.utils.notifyApiError(error)
+      }
+    },
+
+    async fetchLnurl() {
+      if (!this.publicPageData?.paid || !this.publicPageData?.lnurlp) return
+      try {
+        const {data} = await LNbits.api.request(
+          'GET',
+          `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/lnurl`
+        )
+        this.lnurlPay = data.url || data.lnurl
+      } catch (error) {
+        console.warn(error)
+      }
+    },
+
+    async openLnurlDialog() {
+      if (!this.lnurlPay) {
+        await this.fetchLnurl()
+      }
+      if (!this.lnurlPay) {
+        Quasar.Notify.create({
+          type: 'negative',
+          message: 'Unable to load LNURL.'
+        })
+        return
+      }
+      this.lnurlDialog = true
     },
 
     async onSendMessage(messageText) {
@@ -305,11 +357,58 @@ window.PageChatEmbed = {
           if (payload.type === 'resolved') {
             this.chatData.resolved = payload.resolved
           }
+          if (payload.type === 'balance') {
+            const nextBalance = payload.balance || 0
+            const prevBalance = this.chatData.balance || 0
+            this.chatData.balance = nextBalance
+            if (this.lnurlDialog && nextBalance > prevBalance) {
+              this.lnurlDialog = false
+              Quasar.Notify.create({
+                type: 'positive',
+                message: 'Balance funded'
+              })
+            }
+          }
+          if (payload.type === 'claim') {
+            this.chatData.claimed_by_id = payload.claimed_by_id
+            this.chatData.claimed_by_name = payload.claimed_by_name
+          }
         } catch (err) {
           console.warn('Chat websocket message failed', err)
         }
       })
       this.chatSocket = ws
+    },
+
+    connectBalanceWebsocket() {
+      if (!this.chatId) return
+      if (this.balanceSocket) {
+        this.balanceSocket.close()
+      }
+      const url = new URL(window.location)
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+      url.pathname = `/api/v1/ws/chatbalance:${this.chatId}`
+      const ws = new WebSocket(url)
+      ws.addEventListener('message', ({data}) => {
+        try {
+          const payload = JSON.parse(data)
+          if (payload.type === 'balance') {
+            const nextBalance = payload.balance || 0
+            const prevBalance = this.chatData.balance || 0
+            this.chatData.balance = nextBalance
+            if (this.lnurlDialog && nextBalance > prevBalance) {
+              this.lnurlDialog = false
+              Quasar.Notify.create({
+                type: 'positive',
+                message: 'Balance funded'
+              })
+            }
+          }
+        } catch (err) {
+          console.warn('Balance websocket message failed', err)
+        }
+      })
+      this.balanceSocket = ws
     }
   },
   created: async function () {
@@ -320,12 +419,17 @@ window.PageChatEmbed = {
     await this.fetchPublicData()
     await this.ensureParticipant()
     await this.ensureChat()
+    await this.fetchLnurl()
     this.connectChatWebsocket()
+    this.connectBalanceWebsocket()
     this.notifyParent()
   },
   beforeUnmount() {
     if (this.chatSocket) {
       this.chatSocket.close()
+    }
+    if (this.balanceSocket) {
+      this.balanceSocket.close()
     }
   }
 }

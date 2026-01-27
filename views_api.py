@@ -16,9 +16,11 @@ from .crud import (
     get_categories_ids_by_user,
     get_categories_paginated,
     get_chat,
+    get_chat_for_category,
     get_chats_paginated,
     update_categories,
 )
+from .helpers import chat_lnurl_url, lnurl_encode_chat
 from .models import (
     Categories,
     CategoriesFilters,
@@ -40,6 +42,7 @@ from .services import (
     request_tip,
     send_admin_message,
     send_public_message,
+    toggle_chat_claim,
 )
 
 categories_filters = parse_filters(CategoriesFilters)
@@ -54,7 +57,13 @@ async def api_create_categories(
     data: CreateCategories,
     account_id: AccountId = Depends(check_account_id_exists),
 ) -> Categories:
-    categories = await create_categories(account_id.id, data)
+    payload = data.dict()
+    if not payload.get("paid"):
+        payload["lnurlp"] = False
+        payload["claim_split"] = 0
+    if payload.get("claim_split") is not None:
+        payload["claim_split"] = max(0, min(float(payload["claim_split"]), 90))
+    categories = await create_categories(account_id.id, CreateCategories(**payload))
     return categories
 
 
@@ -69,7 +78,15 @@ async def api_update_categories(
         raise HTTPException(HTTPStatus.NOT_FOUND, "Categories not found.")
     if categories.user_id != account_id.id:
         raise HTTPException(HTTPStatus.FORBIDDEN, "You do not own this categories.")
-    categories = await update_categories(Categories(**{**categories.dict(), **data.dict()}))
+    payload = data.dict()
+    if not payload.get("paid"):
+        payload["lnurlp"] = False
+        payload["claim_split"] = 0
+    if payload.get("claim_split") is not None:
+        payload["claim_split"] = max(0, min(float(payload["claim_split"]), 90))
+    categories = await update_categories(
+        Categories(**{**categories.dict(), **payload})
+    )
     return categories
 
 
@@ -181,6 +198,26 @@ async def api_get_public_chat(categories_id: str, chat_id: str) -> ChatSession:
         raise HTTPException(HTTPStatus.NOT_FOUND, str(exc)) from exc
 
 
+@chat_api_router.get(
+    "/api/v1/chats/{categories_id}/{chat_id}/lnurl",
+    name="Get Chat LNURL",
+    summary="Get LNURL for chat balance funding.",
+)
+async def api_get_chat_lnurl(
+    categories_id: str, chat_id: str, request: Request
+) -> dict:
+    chat = await get_chat_for_category(categories_id, chat_id)
+    if not chat:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Chat not found.")
+    categories = await get_categories_by_id(categories_id)
+    if not categories or not categories.paid or not categories.lnurlp:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Chat does not accept balance.")
+    return {
+        "lnurl": lnurl_encode_chat(request, chat.id),
+        "url": chat_lnurl_url(request, chat.id),
+    }
+
+
 @chat_api_router.post(
     "/api/v1/chats/{categories_id}/{chat_id}/public/messages",
     name="Send Message (Public)",
@@ -197,6 +234,28 @@ async def api_send_public_message(
     try:
         base_url = str(request.base_url)
         return await send_public_message(categories_id, chat_id, data, user_id=user_id, base_url=base_url)
+    except ValueError as exc:
+        raise HTTPException(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+
+
+@chat_api_router.post(
+    "/api/v1/chats/{categories_id}/{chat_id}/public/claim",
+    name="Toggle Chat Claim",
+    summary="Claim or release a chat (public endpoint, logged-in users only).",
+    response_model=ChatSession,
+)
+async def api_toggle_chat_claim(
+    categories_id: str,
+    chat_id: str,
+    user_id: str | None = Depends(optional_user_id),
+) -> ChatSession:
+    if not user_id:
+        raise HTTPException(HTTPStatus.UNAUTHORIZED, "Login required.")
+    chat = await get_chat_for_category(categories_id, chat_id)
+    if not chat:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Chat not found.")
+    try:
+        return await toggle_chat_claim(chat_id, user_id)
     except ValueError as exc:
         raise HTTPException(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 

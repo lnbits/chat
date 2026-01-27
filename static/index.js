@@ -10,10 +10,12 @@ window.PageChat = {
           name: null,
           wallet: null,
           paid: false,
+          lnurlp: false,
           tips: false,
           chars: null,
           price_chars: null,
           denomination: 'sat',
+          claim_split: 0,
           notify_telegram: null,
           notify_nostr: null,
           notify_email: null
@@ -110,6 +112,16 @@ window.PageChat = {
         this.getCategories()
       }
     },
+    'categoriesFormDialog.data.paid': {
+      handler(paid) {
+        if (!paid && this.categoriesFormDialog.data.lnurlp) {
+          this.categoriesFormDialog.data.lnurlp = false
+        }
+        if (!paid && this.categoriesFormDialog.data.claim_split) {
+          this.categoriesFormDialog.data.claim_split = 0
+        }
+      }
+    },
     'chatsTable.search': {
       handler() {
         this.getChats()
@@ -133,10 +145,12 @@ window.PageChat = {
         name: null,
         wallet: this.g.user.wallets[0]?.id || null,
         paid: false,
+        lnurlp: false,
         tips: false,
         chars: null,
         price_chars: null,
         denomination: 'sat',
+        claim_split: 0,
         notify_telegram: null,
         notify_nostr: null,
         notify_email: null
@@ -150,6 +164,10 @@ window.PageChat = {
     async saveCategories() {
       try {
         const data = {extra: {}, ...this.categoriesFormDialog.data}
+        if (!data.paid) {
+          data.lnurlp = false
+          data.claim_split = 0
+        }
         const method = data.id ? 'PUT' : 'POST'
         const entry = data.id ? `/${data.id}` : ''
         await LNbits.api.request(

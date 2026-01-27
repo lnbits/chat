@@ -338,17 +338,51 @@
           hint="Wallet to receive payments"
         ></q-select>
 
-        <q-checkbox
-          v-model="categoriesFormDialog.data.paid"
-          label="Paid"
-          hint=" (optional)"
-        ></q-checkbox>
+        <div class="row items-center q-col-gutter-md q-mt-xs">
+          <q-checkbox
+            class="col-auto"
+            v-model="categoriesFormDialog.data.paid"
+            label="Paid"
+            hint=" (optional)"
+          ></q-checkbox>
+          <q-checkbox
+            class="col-auto"
+            v-model="categoriesFormDialog.data.tips"
+            label="Allow tips"
+            hint=" (optional)"
+          ></q-checkbox>
+        </div>
 
-        <q-checkbox
-          v-model="categoriesFormDialog.data.tips"
-          label="Allow tips"
-          hint=" (optional)"
-        ></q-checkbox>
+        <q-expansion-item
+          v-if="categoriesFormDialog.data.paid"
+          icon="settings"
+          label="Advanced paid options"
+          dense
+          class="q-mt-xs"
+        >
+          <div class="row items-center q-col-gutter-md q-mt-sm">
+            <q-checkbox
+              class="col-auto"
+              v-model="categoriesFormDialog.data.lnurlp"
+              label="LNURLP"
+            >
+              <q-tooltip anchor="bottom middle" self="top middle">
+                (instead as payg, create an lnurlp users can fund)
+              </q-tooltip>
+            </q-checkbox>
+            <q-input
+              class="col"
+              filled
+              dense
+              type="number"
+              v-model.number="categoriesFormDialog.data.claim_split"
+              label="% split with claimer"
+              min="0"
+              max="90"
+              step="0.1"
+            ></q-input>
+          </div>
+        </q-expansion-item>
 
         <q-input
           filled

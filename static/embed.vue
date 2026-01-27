@@ -63,6 +63,16 @@
             <q-tooltip>Send a tip</q-tooltip>
           </q-btn>
           <q-btn
+            v-if="publicPageData.paid && publicPageData.lnurlp"
+            class="q-ml-sm"
+            outline
+            color="primary"
+            icon="account_balance_wallet"
+            @click="openLnurlDialog"
+          >
+            <q-tooltip>Fund balance</q-tooltip>
+          </q-btn>
+          <q-btn
             class="q-ml-sm"
             flat
             dense
@@ -74,6 +84,29 @@
         </q-form>
         <div v-if="pendingAmount" class="text-caption text-grey q-mt-sm">
           Payment required (<span v-text="pendingAmount"></span> sats)
+        </div>
+        <div
+          v-if="publicPageData.paid && publicPageData.lnurlp"
+          class="text-caption text-grey q-mt-xs"
+        >
+          Balance: <span v-text="chatData.balance"></span> sats
+        </div>
+        <div v-if="authUser" class="text-caption text-grey q-mt-xs">
+          <span v-if="chatData.claimed_by_id">
+            Claimed by <span v-text="chatData.claimed_by_name"></span>
+          </span>
+          <q-btn
+            class="q-ml-xs"
+            dense
+            flat
+            color="primary"
+            :label="chatData.claimed_by_id === authUser.id ? 'Release' : 'Claim'"
+            :disable="
+              chatData.claimed_by_id &&
+              chatData.claimed_by_id !== authUser.id
+            "
+            @click="toggleClaim"
+          ></q-btn>
         </div>
       </div>
     </div>
@@ -133,6 +166,28 @@
           ></q-btn>
           <q-space></q-space>
           <q-btn v-close-popup flat color="grey" label="Cancel"></q-btn>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
+    <q-dialog v-model="lnurlDialog" position="top">
+      <q-card class="q-pa-lg" style="width: 360px">
+        <q-card-section>
+          <div class="text-h6">Fund chat balance</div>
+          <div class="text-caption text-grey">
+            Scan with an LNURL compatible wallet.
+          </div>
+        </q-card-section>
+        <q-card-section class="q-pa-none q-mb-md">
+          <lnbits-qrcode-lnurl :url="lnurlPay" :nfc="true"></lnbits-qrcode-lnurl>
+        </q-card-section>
+        <q-card-section class="row items-center">
+          <q-btn
+            flat
+            color="grey"
+            label="Close"
+            @click="lnurlDialog = false"
+          ></q-btn>
         </q-card-section>
       </q-card>
     </q-dialog>
