@@ -35,24 +35,68 @@ window.PageChatPublic = {
       autoScroll: true
     }
   },
+
   watch: {
     'chatData.messages': {
-      handler() {
-        if (this.autoScroll) {
-          setTimeout(() => this.scrollToBottom(), 0)
-          setTimeout(() => this.scrollToBottom(), 150)
-        }
+      async handler() {
+        if (!this.autoScroll) return
+        await this.scrollToBottomSmooth()
       },
       deep: true
     }
   },
+
   methods: {
+    // --- NEW: always get the actual DOM element that scrolls ---
+    getChatScrollEl() {
+      const ref = this.$refs.chatScroll
+      if (!ref) return null
+      // If ref is a Quasar/Vue component, the real element is at $el
+      return ref.$el ? ref.$el : ref
+    },
+
     onChatScroll(details) {
-      const el = this.$refs.chatScroll
+      const el = this.getChatScrollEl()
       if (!el) return
+
+      // If there's nothing to scroll, treat as "at bottom"
+      if (el.scrollHeight <= el.clientHeight + 8) {
+        this.autoScroll = true
+        return
+      }
+
       const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 8
       this.autoScroll = atBottom
     },
+
+    async scrollToBottomSmooth() {
+      const el = this.getChatScrollEl()
+      if (!el) return
+
+      // wait for Vue to render messages
+      await this.$nextTick()
+
+      // then wait for browser layout/paint
+      requestAnimationFrame(() => {
+        const el2 = this.getChatScrollEl()
+        if (!el2) return
+        el2.scrollTop = el2.scrollHeight
+      })
+
+      // one more frame helps with fonts/images/layout shifts
+      requestAnimationFrame(() => {
+        const el3 = this.getChatScrollEl()
+        if (!el3) return
+        el3.scrollTop = el3.scrollHeight
+      })
+    },
+
+    scrollToBottom() {
+      const el = this.getChatScrollEl()
+      if (!el) return
+      el.scrollTop = el.scrollHeight
+    },
+
     async fetchPublicData() {
       try {
         const {data} = await LNbits.api.request(
@@ -116,6 +160,9 @@ window.PageChatPublic = {
       this.chatId = data.id
       this.chatData = data
       this.updateChatUrl()
+
+      this.autoScroll = true
+      await this.scrollToBottomSmooth()
     },
 
     updateChatUrl() {
@@ -131,8 +178,9 @@ window.PageChatPublic = {
       )
       this.chatData = data
       this.scrollReady = true
-      setTimeout(() => this.scrollToBottom(), 0)
-      setTimeout(() => this.scrollToBottom(), 150)
+
+      this.autoScroll = true
+      await this.scrollToBottomSmooth()
     },
 
     async toggleClaim() {
@@ -215,6 +263,11 @@ window.PageChatPublic = {
       if (!messageText) return
       this.messageInput = ''
       await this.onSendMessage(messageText)
+
+      // if user is at bottom, keep them at bottom after sending
+      if (this.autoScroll) {
+        await this.scrollToBottomSmooth()
+      }
     },
 
     isSent(message) {
@@ -255,12 +308,6 @@ window.PageChatPublic = {
         hash |= 0
       }
       return Math.abs(hash)
-    },
-
-    scrollToBottom() {
-      const container = this.$refs.chatScroll
-      if (!container) return
-      container.scrollTop = container.scrollHeight
     },
 
     dateFromNow(date) {
@@ -313,6 +360,9 @@ window.PageChatPublic = {
               message: 'Payment received'
             })
             ws.close()
+            if (this.autoScroll) {
+              await this.scrollToBottomSmooth()
+            }
           }
         })
       } catch (err) {
@@ -417,6 +467,7 @@ window.PageChatPublic = {
       this.balanceSocket = ws
     }
   },
+
   created: async function () {
     this.categoriesId = this.$route.params.id
     await this.fetchPublicData()
@@ -426,7 +477,13 @@ window.PageChatPublic = {
     this.connectChatWebsocket()
     this.connectBalanceWebsocket()
   },
-  mounted() {},
+
+  mounted() {
+    // One extra nudge once the DOM exists
+    this.autoScroll = true
+    this.scrollToBottomSmooth()
+  },
+
   beforeUnmount() {
     if (this.chatSocket) {
       this.chatSocket.close()
