@@ -93,6 +93,7 @@ window.PageChat = {
       sending: false,
       adminParticipantId: '',
       poller: null,
+      autoScroll: true,
       embedDialog: {
         show: false,
         iframe: ''
@@ -133,13 +134,47 @@ window.PageChat = {
       }
     },
     'selectedChat.messages': {
-      handler() {
-        this.$nextTick(() => this.scrollToBottom())
+      async handler() {
+        if (!this.autoScroll) return
+        await this.scrollToBottomSmooth()
       },
       deep: true
     }
   },
   methods: {
+    getChatScrollEl() {
+      const ref = this.$refs.adminChatScroll
+      if (!ref) return null
+      return ref.$el ? ref.$el : ref
+    },
+
+    onChatScroll() {
+      const el = this.getChatScrollEl()
+      if (!el) return
+      if (el.scrollHeight <= el.clientHeight + 8) {
+        this.autoScroll = true
+        return
+      }
+      this.autoScroll =
+        el.scrollTop + el.clientHeight >= el.scrollHeight - 8
+    },
+
+    async scrollToBottomSmooth() {
+      const el = this.getChatScrollEl()
+      if (!el) return
+      await this.$nextTick()
+      requestAnimationFrame(() => {
+        const el2 = this.getChatScrollEl()
+        if (!el2) return
+        el2.scrollTop = el2.scrollHeight
+      })
+      requestAnimationFrame(() => {
+        const el3 = this.getChatScrollEl()
+        if (!el3) return
+        el3.scrollTop = el3.scrollHeight
+      })
+    },
+
     async showNewCategoriesForm() {
       this.categoriesFormDialog.data = {
         name: null,
@@ -250,6 +285,7 @@ window.PageChat = {
           null
         )
         this.selectedChat = data
+        this.autoScroll = true
         await this.markChatSeen(chat.id)
         this.connectChatWebsocket(chat.id)
       } catch (error) {
@@ -315,9 +351,9 @@ window.PageChat = {
     },
 
     scrollToBottom() {
-      const container = this.$refs.adminChatScroll
-      if (!container) return
-      container.scrollTop = container.scrollHeight
+      const el = this.getChatScrollEl()
+      if (!el) return
+      el.scrollTop = el.scrollHeight
     },
 
     async toggleResolved() {
