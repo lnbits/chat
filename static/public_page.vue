@@ -13,8 +13,21 @@
               <span v-text="chatData.id"></span>
             </div>
           </div>
-          <q-space />
+          <q-space></q-space>
           <q-badge v-if="chatData.resolved" color="green">resolved</q-badge>
+          <q-btn
+            v-if="authUser"
+            flat
+            dense
+            icon="done"
+            :color="chatData.resolved ? 'grey' : 'green'"
+            @click="toggleResolved"
+          >
+            <q-tooltip>
+              <span v-if="chatData.resolved">Reopen</span>
+              <span v-else>Resolve</span>
+            </q-tooltip>
+          </q-btn>
         </q-card-section>
 
         <q-card-section

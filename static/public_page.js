@@ -204,6 +204,21 @@ window.PageChatPublic = {
       }
     },
 
+    async toggleResolved() {
+      if (!this.authUser) return
+      try {
+        const {data} = await LNbits.api.request(
+          'POST',
+          `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/public/resolve`,
+          null,
+          {resolved: !this.chatData.resolved}
+        )
+        this.chatData.resolved = data.resolved
+      } catch (error) {
+        LNbits.utils.notifyApiError(error)
+      }
+    },
+
     async fetchLnurl() {
       if (!this.publicPageData?.paid || !this.publicPageData?.lnurlp) return
       try {

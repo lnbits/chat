@@ -256,6 +256,30 @@ async def api_toggle_chat_claim(
 
 
 @chat_api_router.post(
+    "/api/v1/chats/{categories_id}/{chat_id}/public/resolve",
+    name="Resolve Chat (Public)",
+    summary="Resolve or reopen a chat (public endpoint, logged-in users only).",
+    response_model=ChatSession,
+)
+async def api_resolve_public_chat(
+    categories_id: str,
+    chat_id: str,
+    data: dict,
+    user_id: str | None = Depends(optional_user_id),
+) -> ChatSession:
+    if not user_id:
+        raise HTTPException(HTTPStatus.UNAUTHORIZED, "Login required.")
+    chat = await get_chat_for_category(categories_id, chat_id)
+    if not chat:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Chat not found.")
+    resolved = bool(data.get("resolved", True))
+    try:
+        return await mark_chat_resolved(chat.id, resolved)
+    except ValueError as exc:
+        raise HTTPException(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+
+
+@chat_api_router.post(
     "/api/v1/chats/{categories_id}/{chat_id}/public/tip",
     name="Send Tip (Public)",
     summary="Create a tip invoice for this chat.",
