@@ -296,7 +296,7 @@ window.PageChat = {
       this.sending = true
       try {
         const payload = {
-          sender_id: `admin-${this.g.user.id}`,
+          sender_id: `admin-${this.g.user.username || 'support'}`,
           sender_name: this.g.user.username || 'support',
           sender_role: 'admin',
           message: messageText

@@ -48,6 +48,10 @@ window.PageChatEmbed = {
     publicChatLink() {
       if (!this.categoriesId || !this.chatId) return ''
       return `${window.location.origin}/chat/${this.categoriesId}/${this.chatId}`
+    },
+    isClaimedByMe() {
+      if (!this.authUser?.username) return false
+      return this.chatData.claimed_by_name === this.authUser.username
     }
   },
   methods: {
@@ -398,7 +402,6 @@ window.PageChatEmbed = {
             this.applyBalanceUpdate(payload.balance)
           }
           if (payload.type === 'claim') {
-            this.chatData.claimed_by_id = payload.claimed_by_id
             this.chatData.claimed_by_name = payload.claimed_by_name
           }
         } catch (err) {

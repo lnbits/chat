@@ -112,9 +112,9 @@
             flat
             color="primary"
             :label="
-              chatData.claimed_by_id === authUser.id
+              isClaimedByMe
                 ? 'Release'
-                : chatData.claimed_by_id
+                : chatData.claimed_by_name
                   ? 'Steal'
                   : 'Claim'
             "

@@ -40,6 +40,10 @@ window.PageChatPublic = {
         this.publicPageData?.claim_split ?? this.publicPageData?.claimSplit
       const value = Number(raw)
       return Number.isFinite(value) ? value : 0
+    },
+    isClaimedByMe() {
+      if (!this.authUser?.username) return false
+      return this.chatData.claimed_by_name === this.authUser.username
     }
   },
 
@@ -425,7 +429,6 @@ window.PageChatPublic = {
             this.applyBalanceUpdate(payload.balance)
           }
           if (payload.type === 'claim') {
-            this.chatData.claimed_by_id = payload.claimed_by_id
             this.chatData.claimed_by_name = payload.claimed_by_name
           }
         } catch (err) {

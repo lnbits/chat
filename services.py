@@ -76,7 +76,6 @@ async def _broadcast_balance(chat_id: str, balance: int) -> None:
 async def _broadcast_claim(chat_id: str, claimed_by_id: str | None, claimed_by_name: str | None) -> None:
     payload = {
         "type": "claim",
-        "claimed_by_id": claimed_by_id,
         "claimed_by_name": claimed_by_name,
     }
     await _broadcast_chat(chat_id, payload)
@@ -197,7 +196,7 @@ async def get_public_chat(categories_id: str, chat_id: str) -> ChatSession:
     chat = await get_chat_for_category(categories_id, chat_id)
     if not chat:
         raise ValueError("Chat not found.")
-    return chat
+    return _sanitize_public_chat(chat)
 
 
 def _ensure_participant(chat: ChatSession, sender_id: str, sender_name: str, sender_role: str) -> None:
@@ -211,6 +210,20 @@ def _ensure_participant(chat: ChatSession, sender_id: str, sender_name: str, sen
     if len(chat.participants) >= MAX_PARTICIPANTS:
         raise ValueError("Chat is full.")
     chat.participants.append(_serialize_participant(ChatParticipant(id=sender_id, name=sender_name, role=sender_role)))
+
+
+def _sanitize_public_chat(chat: ChatSession) -> ChatSession:
+    sanitized = chat.copy(deep=True)
+    sanitized.claimed_by_id = None
+    for participant in sanitized.participants:
+        if participant.get("role") == "admin":
+            name = participant.get("name") or "admin"
+            participant["id"] = f"admin-{name}"
+    for message in sanitized.messages:
+        if message.get("sender_role") == "admin":
+            name = message.get("sender_name") or "admin"
+            message["sender_id"] = f"admin-{name}"
+    return sanitized
 
 
 async def _append_message(chat: ChatSession, message: ChatMessage, unread: bool) -> ChatSession:
