@@ -30,9 +30,16 @@ window.PageChatPublic = {
       chatSocket: null,
       balanceSocket: null,
       lnurlPay: '',
-      lnurlDialog: false,
       authUser: null,
       autoScroll: true
+    }
+  },
+  computed: {
+    claimSplit() {
+      const raw =
+        this.publicPageData?.claim_split ?? this.publicPageData?.claimSplit
+      const value = Number(raw)
+      return Number.isFinite(value) ? value : 0
     }
   },
 
@@ -130,6 +137,9 @@ window.PageChatPublic = {
         }
         if (user?.id) {
           this.authUser = user
+          if (user.username) {
+            this.participantId = `user-${user.username}`
+          }
         }
       } catch (_) {
         // ignore if not logged in
@@ -208,20 +218,6 @@ window.PageChatPublic = {
       } catch (error) {
         console.warn(error)
       }
-    },
-
-    async openLnurlDialog() {
-      if (!this.lnurlPay) {
-        await this.fetchLnurl()
-      }
-      if (!this.lnurlPay) {
-        Quasar.Notify.create({
-          type: 'negative',
-          message: 'Unable to load LNURL.'
-        })
-        return
-      }
-      this.lnurlDialog = true
     },
 
     async onSendMessage(messageText) {
@@ -452,13 +448,6 @@ window.PageChatPublic = {
             const nextBalance = payload.balance || 0
             const prevBalance = this.chatData.balance || 0
             this.chatData.balance = nextBalance
-            if (this.lnurlDialog && nextBalance > prevBalance) {
-              this.lnurlDialog = false
-              Quasar.Notify.create({
-                type: 'positive',
-                message: 'Balance funded'
-              })
-            }
           }
         } catch (err) {
           console.warn('Balance websocket message failed', err)

@@ -53,6 +53,17 @@
             :disable="!messageInput || sending"
           ></q-btn>
           <q-btn
+            v-if="chatId"
+            class="q-ml-sm"
+            flat
+            dense
+            icon="open_in_new"
+            :href="publicChatLink"
+            target="_blank"
+          >
+            <q-tooltip>Open public chat</q-tooltip>
+          </q-btn>
+          <q-btn
             v-if="publicPageData.tips"
             class="q-ml-sm"
             outline
@@ -100,10 +111,12 @@
             dense
             flat
             color="primary"
-            :label="chatData.claimed_by_id === authUser.id ? 'Release' : 'Claim'"
-            :disable="
-              chatData.claimed_by_id &&
-              chatData.claimed_by_id !== authUser.id
+            :label="
+              chatData.claimed_by_id === authUser.id
+                ? 'Release'
+                : chatData.claimed_by_id
+                  ? 'Steal'
+                  : 'Claim'
             "
             @click="toggleClaim"
           ></q-btn>
@@ -124,6 +137,7 @@
         </q-card-section>
         <q-card-section class="q-pa-none q-mb-md">
           <lnbits-qrcode
+            :show-buttons="false"
             :href="'lightning:' + paymentDialog.invoice"
             :value="'lightning:' + paymentDialog.invoice"
           ></lnbits-qrcode>
@@ -179,7 +193,9 @@
           </div>
         </q-card-section>
         <q-card-section class="q-pa-none q-mb-md">
-          <lnbits-qrcode-lnurl :url="lnurlPay" :nfc="true"></lnbits-qrcode-lnurl>
+          <div class="chat-lnurl-no-buttons">
+            <lnbits-qrcode-lnurl :url="lnurlPay" :nfc="true"></lnbits-qrcode-lnurl>
+          </div>
         </q-card-section>
         <q-card-section class="row items-center">
           <q-btn
@@ -250,5 +266,9 @@ body {
   border-radius: 16px;
   padding: 6px 14px;
   color: white;
+}
+
+.chat-lnurl-no-buttons .qrcode__buttons {
+  display: none;
 }
 </style>

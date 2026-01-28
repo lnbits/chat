@@ -48,6 +48,7 @@ class PublicCategories(BaseModel):
     chars: int | None = None
     price_chars: float | None = None
     denomination: str | None = "sat"
+    claim_split: float | None = 0
 
 
 class CategoriesFilters(FilterModel):

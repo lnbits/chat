@@ -141,7 +141,9 @@ async def api_get_public_categories(categories_id: str) -> PublicCategories:
     if not categories:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Categories not found.")
 
-    return PublicCategories(**categories.dict())
+    payload = categories.dict()
+    payload["claim_split"] = categories.claim_split or 0
+    return PublicCategories(**payload)
 
 
 @chat_api_router.delete(

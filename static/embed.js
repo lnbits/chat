@@ -44,6 +44,12 @@ window.PageChatEmbed = {
       deep: true
     }
   },
+  computed: {
+    publicChatLink() {
+      if (!this.categoriesId || !this.chatId) return ''
+      return `${window.location.origin}/chat/${this.categoriesId}/${this.chatId}`
+    }
+  },
   methods: {
     toggleMinimize() {
       this.isMinimized = !this.isMinimized
@@ -95,6 +101,9 @@ window.PageChatEmbed = {
         }
         if (user?.id) {
           this.authUser = user
+          if (user.username) {
+            this.participantId = `user-${user.username}`
+          }
         }
       } catch (_) {
         // ignore if not logged in

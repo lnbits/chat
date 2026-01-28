@@ -33,7 +33,7 @@ from .models import (
     CreateChatMessage,
 )
 
-MAX_PARTICIPANTS = 5
+MAX_PARTICIPANTS = 10
 
 
 def _clean_name(value: str | None, fallback: str) -> str:
@@ -204,8 +204,12 @@ async def get_public_chat(categories_id: str, chat_id: str) -> ChatSession:
 
 
 def _ensure_participant(chat: ChatSession, sender_id: str, sender_name: str, sender_role: str) -> None:
+    normalized_name = (sender_name or "").strip().lower()
     for participant in chat.participants:
         if participant.get("id") == sender_id:
+            return
+        existing_name = (participant.get("name") or "").strip().lower()
+        if normalized_name and existing_name == normalized_name:
             return
     if len(chat.participants) >= MAX_PARTICIPANTS:
         raise ValueError("Chat is full.")
@@ -508,9 +512,6 @@ async def toggle_chat_claim(chat_id: str, user_id: str) -> ChatSession:
     user = await get_user(user_id)
     if not user:
         raise ValueError("User not found.")
-
-    if chat.claimed_by_id and chat.claimed_by_id != user_id:
-        raise ValueError(f"this chat has been claimed by {chat.claimed_by_name}")
 
     if chat.claimed_by_id == user_id:
         chat.claimed_by_id = None

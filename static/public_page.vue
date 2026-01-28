@@ -114,10 +114,12 @@
           <q-btn
             outline
             color="primary"
-            :label="chatData.claimed_by_id === authUser.id ? 'Release' : 'Claim'"
-            :disable="
-              chatData.claimed_by_id &&
-              chatData.claimed_by_id !== authUser.id
+            :label="
+              chatData.claimed_by_id === authUser.id
+                ? 'Release'
+                : chatData.claimed_by_id
+                  ? 'Steal'
+                  : 'Claim'
             "
             @click="toggleClaim"
           ></q-btn>
@@ -131,13 +133,28 @@
             <div class="text-subtitle2">
               <span v-text="chatData.balance"></span> sats
             </div>
-            <q-btn
-              outline
-              color="primary"
-              icon="account_balance_wallet"
-              label="Fund"
-              @click="openLnurlDialog"
-            ></q-btn>
+            <div v-if="claimSplit > 0" class="text-caption text-grey">
+              Claimer split: <span v-text="claimSplit"></span>%
+            </div>
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <q-card v-if="publicPageData.paid && publicPageData.lnurlp">
+        <q-card-section>
+          <div class="text-subtitle2">Fund chat balance</div>
+          <div class="text-caption text-grey">
+            Scan with an LNURL compatible wallet.
+          </div>
+        </q-card-section>
+        <q-card-section class="q-pa-none q-mb-md">
+          <lnbits-qrcode-lnurl
+            v-if="lnurlPay"
+            :url="lnurlPay"
+            :nfc="true"
+          ></lnbits-qrcode-lnurl>
+          <div v-else class="text-caption text-grey q-pa-md">
+            Loading LNURL...
           </div>
         </q-card-section>
       </q-card>
@@ -198,28 +215,6 @@
           ></q-btn>
           <q-space></q-space>
           <q-btn v-close-popup flat color="grey" label="Cancel"></q-btn>
-        </q-card-section>
-      </q-card>
-    </q-dialog>
-
-    <q-dialog v-model="lnurlDialog" position="top">
-      <q-card class="q-pa-lg" style="width: 360px">
-        <q-card-section>
-          <div class="text-h6">Fund chat balance</div>
-          <div class="text-caption text-grey">
-            Scan with an LNURL compatible wallet.
-          </div>
-        </q-card-section>
-        <q-card-section class="q-pa-none q-mb-md">
-          <lnbits-qrcode-lnurl :url="lnurlPay" :nfc="true"></lnbits-qrcode-lnurl>
-        </q-card-section>
-        <q-card-section class="row items-center">
-          <q-btn
-            flat
-            color="grey"
-            label="Close"
-            @click="lnurlDialog = false"
-          ></q-btn>
         </q-card-section>
       </q-card>
     </q-dialog>
