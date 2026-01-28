@@ -102,25 +102,6 @@
         >
           Balance: <span v-text="chatData.balance"></span> sats
         </div>
-        <div v-if="authUser" class="text-caption text-grey q-mt-xs">
-          <span v-if="chatData.claimed_by_id">
-            Claimed by <span v-text="chatData.claimed_by_name"></span>
-          </span>
-          <q-btn
-            class="q-ml-xs"
-            dense
-            flat
-            color="primary"
-            :label="
-              isClaimedByMe
-                ? 'Release'
-                : chatData.claimed_by_name
-                  ? 'Steal'
-                  : 'Claim'
-            "
-            @click="toggleClaim"
-          ></q-btn>
-        </div>
       </div>
     </div>
 
