@@ -11,7 +11,10 @@ window.PageChatPublic = {
         id: '',
         participants: [],
         messages: [],
-        resolved: false
+        resolved: false,
+        balance: 0,
+        claimed_by_id: null,
+        claimed_by_name: null
       },
       publicPageData: {},
       sending: false,
@@ -24,18 +27,77 @@ window.PageChatPublic = {
       pendingAmount: 0,
       showTipDialog: false,
       tipAmount: null,
-      chatSocket: null
+      chatSocket: null,
+      balanceSocket: null,
+      lnurlPay: '',
+      authUser: null,
+      autoScroll: true
     }
   },
+  computed: {
+    claimSplit() {
+      const raw =
+        this.publicPageData?.claim_split ?? this.publicPageData?.claimSplit
+      const value = Number(raw)
+      return Number.isFinite(value) ? value : 0
+    }
+  },
+
   watch: {
     'chatData.messages': {
-      handler() {
-        this.$nextTick(() => this.scrollToBottom())
+      async handler() {
+        if (!this.autoScroll) return
+        await this.scrollToBottomSmooth()
       },
       deep: true
     }
   },
+
   methods: {
+    // --- NEW: always get the actual DOM element that scrolls ---
+    getChatScrollEl() {
+      const ref = this.$refs.chatScroll
+      if (!ref) return null
+      // If ref is a Quasar/Vue component, the real element is at $el
+      return ref.$el ? ref.$el : ref
+    },
+
+    onChatScroll(details) {
+      const el = this.getChatScrollEl()
+      if (!el) return
+
+      // If there's nothing to scroll, treat as "at bottom"
+      if (el.scrollHeight <= el.clientHeight + 8) {
+        this.autoScroll = true
+        return
+      }
+
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 8
+      this.autoScroll = atBottom
+    },
+
+    async scrollToBottomSmooth() {
+      const el = this.getChatScrollEl()
+      if (!el) return
+
+      // wait for Vue to render messages
+      await this.$nextTick()
+
+      // then wait for browser layout/paint
+      requestAnimationFrame(() => {
+        const el2 = this.getChatScrollEl()
+        if (!el2) return
+        el2.scrollTop = el2.scrollHeight
+      })
+
+      // one more frame helps with fonts/images/layout shifts
+      requestAnimationFrame(() => {
+        const el3 = this.getChatScrollEl()
+        if (!el3) return
+        el3.scrollTop = el3.scrollHeight
+      })
+    },
+
     async fetchPublicData() {
       try {
         const {data} = await LNbits.api.request(
@@ -67,6 +129,12 @@ window.PageChatPublic = {
         } else if (user) {
           this.participantName = 'anon'
         }
+        if (user?.id) {
+          this.authUser = user
+          if (user.username) {
+            this.participantId = `user-${user.username}`
+          }
+        }
       } catch (_) {
         // ignore if not logged in
       }
@@ -95,6 +163,10 @@ window.PageChatPublic = {
       )
       this.chatId = data.id
       this.chatData = data
+      this.updateChatUrl()
+
+      this.autoScroll = true
+      await this.scrollToBottomSmooth()
     },
 
     updateChatUrl() {
@@ -109,6 +181,55 @@ window.PageChatPublic = {
         `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/public`
       )
       this.chatData = data
+
+      this.autoScroll = true
+      await this.scrollToBottomSmooth()
+    },
+
+    async toggleClaim() {
+      if (!this.authUser) return
+      try {
+        const {data} = await LNbits.api.request(
+          'POST',
+          `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/public/claim`,
+          null
+        )
+        this.chatData = data
+      } catch (error) {
+        LNbits.utils.notifyApiError(error)
+      }
+    },
+
+    async fetchLnurl() {
+      if (!this.publicPageData?.paid || !this.publicPageData?.lnurlp) return
+      try {
+        const {data} = await LNbits.api.request(
+          'GET',
+          `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/lnurl`
+        )
+        this.lnurlPay = data.url || data.lnurl
+      } catch (error) {
+        console.warn(error)
+      }
+    },
+
+    async refreshBalance() {
+      if (!this.chatId) return
+      try {
+        const {data} = await LNbits.api.request(
+          'GET',
+          `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/public`
+        )
+        if (data && typeof data.balance !== 'undefined') {
+          this.applyBalanceUpdate(data.balance)
+        }
+      } catch (error) {
+        console.warn(error)
+      }
+    },
+
+    applyBalanceUpdate(nextBalance) {
+      this.chatData.balance = nextBalance || 0
     },
 
     async onSendMessage(messageText) {
@@ -150,6 +271,11 @@ window.PageChatPublic = {
       if (!messageText) return
       this.messageInput = ''
       await this.onSendMessage(messageText)
+
+      // if user is at bottom, keep them at bottom after sending
+      if (this.autoScroll) {
+        await this.scrollToBottomSmooth()
+      }
     },
 
     isSent(message) {
@@ -190,12 +316,6 @@ window.PageChatPublic = {
         hash |= 0
       }
       return Math.abs(hash)
-    },
-
-    scrollToBottom() {
-      const container = this.$refs.chatScroll
-      if (!container) return
-      container.scrollTop = container.scrollHeight
     },
 
     dateFromNow(date) {
@@ -248,6 +368,9 @@ window.PageChatPublic = {
               message: 'Payment received'
             })
             ws.close()
+            if (this.autoScroll) {
+              await this.scrollToBottomSmooth()
+            }
           }
         })
       } catch (err) {
@@ -298,23 +421,68 @@ window.PageChatPublic = {
           if (payload.type === 'resolved') {
             this.chatData.resolved = payload.resolved
           }
+          if (payload.type === 'balance') {
+            this.applyBalanceUpdate(payload.balance)
+          }
+          if (payload.type === 'claim') {
+            this.chatData.claimed_by_id = payload.claimed_by_id
+            this.chatData.claimed_by_name = payload.claimed_by_name
+          }
         } catch (err) {
           console.warn('Chat websocket message failed', err)
         }
       })
       this.chatSocket = ws
+    },
+
+    connectBalanceWebsocket() {
+      if (!this.chatId) return
+      if (this.balanceSocket) {
+        this.balanceSocket.close()
+      }
+      const url = new URL(window.location)
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+      url.pathname = `/api/v1/ws/chatbalance:${this.chatId}`
+      const ws = new WebSocket(url)
+      ws.addEventListener('open', () => {
+        this.refreshBalance()
+      })
+      ws.addEventListener('message', ({data}) => {
+        try {
+          const payload = JSON.parse(data)
+          if (payload.type === 'balance') {
+            this.applyBalanceUpdate(payload.balance)
+          }
+        } catch (err) {
+          console.warn('Balance websocket message failed', err)
+        }
+      })
+      this.balanceSocket = ws
     }
   },
+
   created: async function () {
     this.categoriesId = this.$route.params.id
     await this.fetchPublicData()
     await this.ensureParticipant()
     await this.ensureChat()
+    await this.fetchLnurl()
     this.connectChatWebsocket()
+    this.connectBalanceWebsocket()
   },
+
+  mounted() {
+    // One extra nudge once the DOM exists
+    this.autoScroll = true
+    this.scrollToBottomSmooth()
+  },
+
   beforeUnmount() {
     if (this.chatSocket) {
       this.chatSocket.close()
+    }
+    if (this.balanceSocket) {
+      this.balanceSocket.close()
     }
   }
 }

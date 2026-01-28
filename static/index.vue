@@ -219,8 +219,11 @@
       </q-card>
     </div>
 
-    <div class="col-12 col-md-4 q-gutter-y-md">
-      <q-card v-if="selectedChat">
+    <div
+      class="col-12 col-md-4 q-gutter-y-md column"
+      style="height: calc(100vh - 64px)"
+    >
+      <q-card v-if="selectedChat" class="column no-wrap" style="height: 100%">
         <q-card-section class="row items-center">
           <div>
             <div class="text-h6" v-text="chatTitle(selectedChat)"></div>
@@ -254,33 +257,38 @@
           </q-btn>
         </q-card-section>
         <q-separator></q-separator>
-        <q-card-section class="q-pa-none">
-          <div class="chat-container" ref="adminChatScroll">
-            <div class="chat-messages q-pa-md">
-              <q-chat-message
-                v-for="message in selectedChat.messages"
-                :key="message.id"
-                :name="message.sender_name"
-                :sent="isSent(message)"
-                :stamp="dateFromNow(message.created_at)"
-                :bg-color="messageColor(message)"
-              >
-                <div v-if="message.message_type === 'tip'">
-                  <q-badge color="amber">Tip</q-badge>
-                  <span class="q-ml-sm" v-text="message.message"></span>
-                </div>
-                <div v-else v-text="message.message"></div>
-              </q-chat-message>
-              <div
-                v-if="!selectedChat.messages.length"
-                class="text-caption text-grey"
-              >
-                Start the conversation.
+        <q-card-section
+          class="col q-pa-md"
+          style="min-height: 0; overflow-y: auto"
+          ref="adminChatScroll"
+          @scroll="onChatScroll"
+        >
+          <div class="column justify-end" style="min-height: 100%">
+            <q-chat-message
+              v-for="message in selectedChat.messages"
+              :key="message.id"
+              :name="message.sender_name"
+              :sent="isSent(message)"
+              :stamp="dateFromNow(message.created_at)"
+              :bg-color="messageColor(message)"
+            >
+              <div v-if="message.message_type === 'tip'">
+                <q-badge color="amber">Tip</q-badge>
+                <span class="q-ml-sm" v-text="message.message"></span>
               </div>
-            </div>
+              <div v-else v-text="message.message"></div>
+            </q-chat-message>
           </div>
-          <q-separator></q-separator>
-          <div class="q-pt-sm q-px-md q-pb-md">
+          <div
+            v-if="!selectedChat.messages.length"
+            class="text-caption text-grey"
+          >
+            Start the conversation.
+          </div>
+        </q-card-section>
+        <q-separator></q-separator>
+        <q-card-actions class="q-pa-md" align="stretch">
+          <div class="col">
             <q-form @submit="sendMessage" class="row items-center">
               <q-input
                 dense
@@ -300,7 +308,7 @@
               ></q-btn>
             </q-form>
           </div>
-        </q-card-section>
+        </q-card-actions>
       </q-card>
 
       <q-card v-else>
@@ -338,17 +346,51 @@
           hint="Wallet to receive payments"
         ></q-select>
 
-        <q-checkbox
-          v-model="categoriesFormDialog.data.paid"
-          label="Paid"
-          hint=" (optional)"
-        ></q-checkbox>
+        <div class="row items-center q-col-gutter-md q-mt-xs">
+          <q-checkbox
+            class="col-auto"
+            v-model="categoriesFormDialog.data.paid"
+            label="Paid"
+            hint=" (optional)"
+          ></q-checkbox>
+          <q-checkbox
+            class="col-auto"
+            v-model="categoriesFormDialog.data.tips"
+            label="Allow tips"
+            hint=" (optional)"
+          ></q-checkbox>
+        </div>
 
-        <q-checkbox
-          v-model="categoriesFormDialog.data.tips"
-          label="Allow tips"
-          hint=" (optional)"
-        ></q-checkbox>
+        <q-expansion-item
+          v-if="categoriesFormDialog.data.paid"
+          icon="settings"
+          label="Advanced paid options"
+          dense
+          class="q-mt-xs"
+        >
+          <div class="row items-center q-col-gutter-md q-mt-sm">
+            <q-checkbox
+              class="col-auto"
+              v-model="categoriesFormDialog.data.lnurlp"
+              label="LNURLP"
+            >
+              <q-tooltip anchor="bottom middle" self="top middle">
+                (instead as payg, create an lnurlp users can fund)
+              </q-tooltip>
+            </q-checkbox>
+            <q-input
+              class="col"
+              filled
+              dense
+              type="number"
+              v-model.number="categoriesFormDialog.data.claim_split"
+              label="% split with claimer"
+              min="0"
+              max="90"
+              step="0.1"
+            ></q-input>
+          </div>
+        </q-expansion-item>
 
         <q-input
           filled

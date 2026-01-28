@@ -127,3 +127,49 @@ async def m007_chats_public_url(db):
         ALTER TABLE chat.chats ADD COLUMN public_url TEXT;
         """
     )
+
+
+async def m008_chat_lnurlp_balance(db):
+    """
+    Add lnurlp toggle to categories and balance to chats.
+    """
+
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN lnurlp BOOLEAN DEFAULT 0;
+        """
+    )
+    await db.execute(
+        f"""
+        ALTER TABLE chat.chats ADD COLUMN balance {db.big_int} DEFAULT 0;
+    """
+    )
+
+
+async def m009_chat_claims(db):
+    """
+    Add chat claim fields.
+    """
+
+    await db.execute(
+        """
+        ALTER TABLE chat.chats ADD COLUMN claimed_by_id TEXT;
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.chats ADD COLUMN claimed_by_name TEXT;
+        """
+    )
+
+
+async def m010_chat_claim_split(db):
+    """
+    Add claim split percentage to categories.
+    """
+
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN claim_split REAL DEFAULT 0;
+        """
+    )

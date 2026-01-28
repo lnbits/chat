@@ -10,10 +10,12 @@ window.PageChat = {
           name: null,
           wallet: null,
           paid: false,
+          lnurlp: false,
           tips: false,
           chars: null,
           price_chars: null,
           denomination: 'sat',
+          claim_split: 0,
           notify_telegram: null,
           notify_nostr: null,
           notify_email: null
@@ -89,8 +91,8 @@ window.PageChat = {
       chatSocket: null,
       messageInput: '',
       sending: false,
-      adminParticipantId: '',
       poller: null,
+      autoScroll: true,
       embedDialog: {
         show: false,
         iframe: ''
@@ -110,6 +112,16 @@ window.PageChat = {
         this.getCategories()
       }
     },
+    'categoriesFormDialog.data.paid': {
+      handler(paid) {
+        if (!paid && this.categoriesFormDialog.data.lnurlp) {
+          this.categoriesFormDialog.data.lnurlp = false
+        }
+        if (!paid && this.categoriesFormDialog.data.claim_split) {
+          this.categoriesFormDialog.data.claim_split = 0
+        }
+      }
+    },
     'chatsTable.search': {
       handler() {
         this.getChats()
@@ -121,22 +133,57 @@ window.PageChat = {
       }
     },
     'selectedChat.messages': {
-      handler() {
-        this.$nextTick(() => this.scrollToBottom())
+      async handler() {
+        if (!this.autoScroll) return
+        await this.scrollToBottomSmooth()
       },
       deep: true
     }
   },
   methods: {
+    getChatScrollEl() {
+      const ref = this.$refs.adminChatScroll
+      if (!ref) return null
+      return ref.$el ? ref.$el : ref
+    },
+
+    onChatScroll() {
+      const el = this.getChatScrollEl()
+      if (!el) return
+      if (el.scrollHeight <= el.clientHeight + 8) {
+        this.autoScroll = true
+        return
+      }
+      this.autoScroll = el.scrollTop + el.clientHeight >= el.scrollHeight - 8
+    },
+
+    async scrollToBottomSmooth() {
+      const el = this.getChatScrollEl()
+      if (!el) return
+      await this.$nextTick()
+      requestAnimationFrame(() => {
+        const el2 = this.getChatScrollEl()
+        if (!el2) return
+        el2.scrollTop = el2.scrollHeight
+      })
+      requestAnimationFrame(() => {
+        const el3 = this.getChatScrollEl()
+        if (!el3) return
+        el3.scrollTop = el3.scrollHeight
+      })
+    },
+
     async showNewCategoriesForm() {
       this.categoriesFormDialog.data = {
         name: null,
         wallet: this.g.user.wallets[0]?.id || null,
         paid: false,
+        lnurlp: false,
         tips: false,
         chars: null,
         price_chars: null,
         denomination: 'sat',
+        claim_split: 0,
         notify_telegram: null,
         notify_nostr: null,
         notify_email: null
@@ -150,6 +197,10 @@ window.PageChat = {
     async saveCategories() {
       try {
         const data = {extra: {}, ...this.categoriesFormDialog.data}
+        if (!data.paid) {
+          data.lnurlp = false
+          data.claim_split = 0
+        }
         const method = data.id ? 'PUT' : 'POST'
         const entry = data.id ? `/${data.id}` : ''
         await LNbits.api.request(
@@ -232,6 +283,7 @@ window.PageChat = {
           null
         )
         this.selectedChat = data
+        this.autoScroll = true
         await this.markChatSeen(chat.id)
         this.connectChatWebsocket(chat.id)
       } catch (error) {
@@ -297,9 +349,9 @@ window.PageChat = {
     },
 
     scrollToBottom() {
-      const container = this.$refs.adminChatScroll
-      if (!container) return
-      container.scrollTop = container.scrollHeight
+      const el = this.getChatScrollEl()
+      if (!el) return
+      el.scrollTop = el.scrollHeight
     },
 
     async toggleResolved() {
@@ -450,7 +502,6 @@ window.PageChat = {
     }
   },
   async created() {
-    this.adminParticipantId = `admin-${this.g.user.id}`
     await this.fetchCurrencies()
     await this.getCategories()
     await this.getChats()

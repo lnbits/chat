@@ -8,10 +8,12 @@ class CreateCategories(BaseModel):
     name: str
     wallet: str | None = None
     paid: bool | None = False
+    lnurlp: bool | None = False
     tips: bool | None = False
     chars: int | None = None
     price_chars: float | None = None
     denomination: str | None = "sat"
+    claim_split: float | None = 0
     notify_telegram: str | None = None
     notify_nostr: str | None = None
     notify_email: str | None = None
@@ -23,10 +25,12 @@ class Categories(BaseModel):
     name: str
     wallet: str | None = None
     paid: bool | None = False
+    lnurlp: bool | None = False
     tips: bool | None = False
     chars: int | None = None
     price_chars: float | None = None
     denomination: str | None = "sat"
+    claim_split: float | None = 0
     notify_telegram: str | None = None
     notify_nostr: str | None = None
     notify_email: str | None = None
@@ -39,29 +43,35 @@ class PublicCategories(BaseModel):
     id: str
     name: str
     paid: bool | None = False
+    lnurlp: bool | None = False
     tips: bool | None = False
     chars: int | None = None
     price_chars: float | None = None
     denomination: str | None = "sat"
+    claim_split: float | None = 0
 
 
 class CategoriesFilters(FilterModel):
     __search_fields__ = [
         "name",
         "paid",
+        "lnurlp",
         "tips",
         "chars",
         "price_chars",
         "denomination",
+        "claim_split",
     ]
 
     __sort_fields__ = [
         "name",
         "paid",
+        "lnurlp",
         "tips",
         "chars",
         "price_chars",
         "denomination",
+        "claim_split",
         "created_at",
         "updated_at",
     ]
@@ -98,6 +108,9 @@ class ChatSession(BaseModel):
     resolved: bool = False
     unread: bool = True
     public_url: str | None = None
+    balance: int = 0
+    claimed_by_id: str | None = None
+    claimed_by_name: str | None = None
     participants: list[dict] = Field(default_factory=list)
     messages: list[dict] = Field(default_factory=list)
     last_message_at: datetime | None = None
