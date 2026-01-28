@@ -178,6 +178,34 @@ window.PageChatEmbed = {
       }
     },
 
+    async refreshBalance() {
+      if (!this.chatId) return
+      try {
+        const {data} = await LNbits.api.request(
+          'GET',
+          `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/public`
+        )
+        if (data && typeof data.balance !== 'undefined') {
+          this.applyBalanceUpdate(data.balance)
+        }
+      } catch (error) {
+        console.warn(error)
+      }
+    },
+
+    applyBalanceUpdate(nextBalance) {
+      const next = nextBalance || 0
+      const prev = this.chatData.balance || 0
+      this.chatData.balance = next
+      if (this.lnurlDialog && next > prev) {
+        this.lnurlDialog = false
+        Quasar.Notify.create({
+          type: 'positive',
+          message: 'Balance funded'
+        })
+      }
+    },
+
     async openLnurlDialog() {
       if (!this.lnurlPay) {
         await this.fetchLnurl()
@@ -367,16 +395,7 @@ window.PageChatEmbed = {
             this.chatData.resolved = payload.resolved
           }
           if (payload.type === 'balance') {
-            const nextBalance = payload.balance || 0
-            const prevBalance = this.chatData.balance || 0
-            this.chatData.balance = nextBalance
-            if (this.lnurlDialog && nextBalance > prevBalance) {
-              this.lnurlDialog = false
-              Quasar.Notify.create({
-                type: 'positive',
-                message: 'Balance funded'
-              })
-            }
+            this.applyBalanceUpdate(payload.balance)
           }
           if (payload.type === 'claim') {
             this.chatData.claimed_by_id = payload.claimed_by_id
@@ -398,20 +417,14 @@ window.PageChatEmbed = {
       url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
       url.pathname = `/api/v1/ws/chatbalance:${this.chatId}`
       const ws = new WebSocket(url)
+      ws.addEventListener('open', () => {
+        this.refreshBalance()
+      })
       ws.addEventListener('message', ({data}) => {
         try {
           const payload = JSON.parse(data)
           if (payload.type === 'balance') {
-            const nextBalance = payload.balance || 0
-            const prevBalance = this.chatData.balance || 0
-            this.chatData.balance = nextBalance
-            if (this.lnurlDialog && nextBalance > prevBalance) {
-              this.lnurlDialog = false
-              Quasar.Notify.create({
-                type: 'positive',
-                message: 'Balance funded'
-              })
-            }
+            this.applyBalanceUpdate(payload.balance)
           }
         } catch (err) {
           console.warn('Balance websocket message failed', err)

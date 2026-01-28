@@ -194,7 +194,10 @@
         </q-card-section>
         <q-card-section class="q-pa-none q-mb-md">
           <div class="chat-lnurl-no-buttons">
-            <lnbits-qrcode-lnurl :url="lnurlPay" :nfc="true"></lnbits-qrcode-lnurl>
+            <lnbits-qrcode-lnurl
+              :url="lnurlPay"
+              :nfc="true"
+            ></lnbits-qrcode-lnurl>
           </div>
         </q-card-section>
         <q-card-section class="row items-center">

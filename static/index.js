@@ -91,7 +91,6 @@ window.PageChat = {
       chatSocket: null,
       messageInput: '',
       sending: false,
-      adminParticipantId: '',
       poller: null,
       autoScroll: true,
       embedDialog: {
@@ -155,8 +154,7 @@ window.PageChat = {
         this.autoScroll = true
         return
       }
-      this.autoScroll =
-        el.scrollTop + el.clientHeight >= el.scrollHeight - 8
+      this.autoScroll = el.scrollTop + el.clientHeight >= el.scrollHeight - 8
     },
 
     async scrollToBottomSmooth() {
@@ -504,7 +502,6 @@ window.PageChat = {
     }
   },
   async created() {
-    this.adminParticipantId = `admin-${this.g.user.id}`
     await this.fetchCurrencies()
     await this.getCategories()
     await this.getChats()

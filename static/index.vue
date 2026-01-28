@@ -221,9 +221,9 @@
 
     <div
       class="col-12 col-md-4 q-gutter-y-md column"
-      style="height: calc(100vh - 64px);"
+      style="height: calc(100vh - 64px)"
     >
-      <q-card v-if="selectedChat" class="column no-wrap" style="height: 100%;">
+      <q-card v-if="selectedChat" class="column no-wrap" style="height: 100%">
         <q-card-section class="row items-center">
           <div>
             <div class="text-h6" v-text="chatTitle(selectedChat)"></div>
@@ -259,11 +259,11 @@
         <q-separator></q-separator>
         <q-card-section
           class="col q-pa-md"
-          style="min-height: 0; overflow-y: auto;"
+          style="min-height: 0; overflow-y: auto"
           ref="adminChatScroll"
           @scroll="onChatScroll"
         >
-          <div class="column justify-end" style="min-height: 100%;">
+          <div class="column justify-end" style="min-height: 100%">
             <q-chat-message
               v-for="message in selectedChat.messages"
               :key="message.id"

@@ -2,10 +2,9 @@ import json
 import math
 from datetime import datetime, timezone
 
-from lnbits.core.crud.wallets import get_wallets
-from lnbits.core.models import Payment
 from lnbits.core.crud.users import get_user
 from lnbits.core.crud.wallets import get_wallets
+from lnbits.core.models import Payment
 from lnbits.core.services import create_invoice, pay_invoice, websocket_manager
 from lnbits.core.services.notifications import send_notification
 from lnbits.helpers import urlsafe_short_hash
@@ -83,9 +82,7 @@ async def _broadcast_claim(chat_id: str, claimed_by_id: str | None, claimed_by_n
     await _broadcast_chat(chat_id, payload)
 
 
-async def _maybe_pay_claim_split(
-    category: Categories, chat: ChatSession, amount: int
-) -> None:
+async def _maybe_pay_claim_split(category: Categories, chat: ChatSession, amount: int) -> None:
     if not chat.claimed_by_id:
         return
     split = float(category.claim_split or 0)
@@ -239,6 +236,103 @@ async def _calculate_amount(category: Categories, message: str) -> int:
     return math.ceil(raw_amount)
 
 
+async def _handle_lnurlp_drawdown(
+    category: Categories,
+    chat: ChatSession,
+    amount: int,
+    data: CreateChatMessage,
+    sender_name: str,
+    base_url: str | None,
+) -> ChatPaymentRequest:
+    if chat.balance < amount:
+        raise ValueError("Insufficient balance. Fund the chat to continue.")
+    chat.balance = max(0, chat.balance - amount)
+    await _maybe_pay_claim_split(category, chat, amount)
+    message = ChatMessage(
+        id=urlsafe_short_hash(),
+        sender_id=data.sender_id,
+        sender_name=sender_name,
+        sender_role=data.sender_role,
+        message=data.message,
+        created_at=datetime.now(timezone.utc),
+        amount=amount,
+        message_type="message",
+    )
+    if not chat.messages:
+        await _notify_new_chat(category, chat, base_url, data.message)
+    await _append_message(chat, message, unread=True)
+    await _broadcast_balance(chat.id, chat.balance)
+    return ChatPaymentRequest(chat_id=chat.id, pending=False, message_id=message.id)
+
+
+async def _create_payg_payment_request(
+    category: Categories,
+    chat: ChatSession,
+    amount: int,
+    data: CreateChatMessage,
+    sender_name: str,
+) -> ChatPaymentRequest:
+    wallet_id = await _resolve_category_wallet(category)
+    if not wallet_id:
+        raise ValueError("Category wallet not configured.")
+    payment = await create_invoice(
+        wallet_id=wallet_id,
+        amount=amount,
+        memo=f"Chat message for {category.name}",
+        extra={
+            "tag": "chat",
+            "chat_id": chat.id,
+            "categories_id": chat.categories_id,
+            "sender_id": data.sender_id,
+            "sender_name": sender_name,
+            "sender_role": data.sender_role,
+            "message": data.message,
+            "payment_type": "message",
+        },
+    )
+    await create_chat_payment(
+        ChatPayment(
+            payment_hash=payment.payment_hash,
+            chat_id=chat.id,
+            categories_id=chat.categories_id,
+            sender_id=data.sender_id,
+            sender_name=sender_name,
+            sender_role=data.sender_role,
+            message=data.message,
+            amount=amount,
+            payment_type="message",
+        )
+    )
+    return ChatPaymentRequest(
+        chat_id=chat.id,
+        payment_hash=payment.payment_hash,
+        payment_request=payment.bolt11,
+        amount=amount,
+        pending=True,
+    )
+
+
+async def _send_free_message(
+    category: Categories,
+    chat: ChatSession,
+    data: CreateChatMessage,
+    sender_name: str,
+    base_url: str | None,
+) -> ChatPaymentRequest:
+    message = ChatMessage(
+        id=urlsafe_short_hash(),
+        sender_id=data.sender_id,
+        sender_name=sender_name,
+        sender_role=data.sender_role,
+        message=data.message,
+        created_at=datetime.now(timezone.utc),
+    )
+    if not chat.messages:
+        await _notify_new_chat(category, chat, base_url, data.message)
+    await _append_message(chat, message, unread=True)
+    return ChatPaymentRequest(chat_id=chat.id, pending=False, message_id=message.id)
+
+
 async def send_public_message(
     categories_id: str,
     chat_id: str,
@@ -267,78 +361,12 @@ async def send_public_message(
         amount = await _calculate_amount(category, data.message)
 
     if category.paid and category.lnurlp and amount > 0 and not user_id:
-        if chat.balance < amount:
-            raise ValueError("Insufficient balance. Fund the chat to continue.")
-        chat.balance = max(0, chat.balance - amount)
-        await _maybe_pay_claim_split(category, chat, amount)
-        message = ChatMessage(
-            id=urlsafe_short_hash(),
-            sender_id=data.sender_id,
-            sender_name=sender_name,
-            sender_role=data.sender_role,
-            message=data.message,
-            created_at=datetime.now(timezone.utc),
-            amount=amount,
-            message_type="message",
-        )
-        if not chat.messages:
-            await _notify_new_chat(category, chat, base_url, data.message)
-        await _append_message(chat, message, unread=True)
-        await _broadcast_balance(chat.id, chat.balance)
-        return ChatPaymentRequest(chat_id=chat.id, pending=False, message_id=message.id)
+        return await _handle_lnurlp_drawdown(category, chat, amount, data, sender_name, base_url)
 
     if category.paid and amount > 0 and not user_id:
-        wallet_id = await _resolve_category_wallet(category)
-        if not wallet_id:
-            raise ValueError("Category wallet not configured.")
-        payment = await create_invoice(
-            wallet_id=wallet_id,
-            amount=amount,
-            memo=f"Chat message for {category.name}",
-            extra={
-                "tag": "chat",
-                "chat_id": chat.id,
-                "categories_id": categories_id,
-                "sender_id": data.sender_id,
-                "sender_name": sender_name,
-                "sender_role": data.sender_role,
-                "message": data.message,
-                "payment_type": "message",
-            },
-        )
-        await create_chat_payment(
-            ChatPayment(
-                payment_hash=payment.payment_hash,
-                chat_id=chat.id,
-                categories_id=categories_id,
-                sender_id=data.sender_id,
-                sender_name=sender_name,
-                sender_role=data.sender_role,
-                message=data.message,
-                amount=amount,
-                payment_type="message",
-            )
-        )
-        return ChatPaymentRequest(
-            chat_id=chat.id,
-            payment_hash=payment.payment_hash,
-            payment_request=payment.bolt11,
-            amount=amount,
-            pending=True,
-        )
+        return await _create_payg_payment_request(category, chat, amount, data, sender_name)
 
-    message = ChatMessage(
-        id=urlsafe_short_hash(),
-        sender_id=data.sender_id,
-        sender_name=sender_name,
-        sender_role=data.sender_role,
-        message=data.message,
-        created_at=datetime.now(timezone.utc),
-    )
-    if not chat.messages:
-        await _notify_new_chat(category, chat, base_url, data.message)
-    await _append_message(chat, message, unread=True)
-    return ChatPaymentRequest(chat_id=chat.id, pending=False, message_id=message.id)
+    return await _send_free_message(category, chat, data, sender_name, base_url)
 
 
 async def send_admin_message(
@@ -439,30 +467,22 @@ async def request_tip(
     )
 
 
-async def payment_received_for_client_data(payment: Payment) -> bool:
-    if payment.extra.get("tag") != "chat":
+async def _apply_balance_payment(chat_id: str | None, amount_sat: int) -> bool:
+    if not chat_id:
+        logger.warning("Chat balance payment missing chat_id.")
         return False
-
-    if payment.extra.get("payment_type") == "balance":
-        chat_id = payment.extra.get("chat_id")
-        if not chat_id:
-            logger.warning("Chat balance payment missing chat_id.")
-            return False
-        chat = await get_chat(chat_id)
-        if not chat:
-            logger.warning("Chat not found for balance payment.")
-            return False
-        chat.balance = max(0, chat.balance + payment.sat)
-        chat.updated_at = datetime.now(timezone.utc)
-        await update_chat(chat)
-        await _broadcast_balance(chat.id, chat.balance)
-        return True
-
-    chat_payment = await get_chat_payment(payment.payment_hash)
-    if not chat_payment:
-        logger.warning("Chat payment not found.")
+    chat = await get_chat(chat_id)
+    if not chat:
+        logger.warning("Chat not found for balance payment.")
         return False
+    chat.balance = max(0, chat.balance + amount_sat)
+    chat.updated_at = datetime.now(timezone.utc)
+    await update_chat(chat)
+    await _broadcast_balance(chat.id, chat.balance)
+    return True
 
+
+async def _finalize_chat_payment(chat_payment: ChatPayment) -> bool:
     if chat_payment.paid:
         return True
 
@@ -496,12 +516,27 @@ async def payment_received_for_client_data(payment: Payment) -> bool:
         amount=chat_payment.amount,
         message_type=message_type,
     )
-    if not chat.messages or len(chat.messages) == 0:
+    if not chat.messages:
         category = await get_categories_by_id(chat.categories_id)
         if category:
             await _notify_new_chat(category, chat, None, chat_payment.message)
     await _append_message(chat, message, unread=True)
     return True
+
+
+async def payment_received_for_client_data(payment: Payment) -> bool:
+    if payment.extra.get("tag") != "chat":
+        return False
+
+    if payment.extra.get("payment_type") == "balance":
+        return await _apply_balance_payment(payment.extra.get("chat_id"), payment.sat)
+
+    chat_payment = await get_chat_payment(payment.payment_hash)
+    if not chat_payment:
+        logger.warning("Chat payment not found.")
+        return False
+
+    return await _finalize_chat_payment(chat_payment)
 
 
 async def toggle_chat_claim(chat_id: str, user_id: str) -> ChatSession:

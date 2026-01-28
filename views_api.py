@@ -84,9 +84,7 @@ async def api_update_categories(
         payload["claim_split"] = 0
     if payload.get("claim_split") is not None:
         payload["claim_split"] = max(0, min(float(payload["claim_split"]), 90))
-    categories = await update_categories(
-        Categories(**{**categories.dict(), **payload})
-    )
+    categories = await update_categories(Categories(**{**categories.dict(), **payload}))
     return categories
 
 
@@ -160,9 +158,6 @@ async def api_delete_categories(
 ) -> SimpleStatus:
 
     await delete_categories(account_id.id, categories_id)
-    if clear_chats is True:
-        # await delete all chats associated with this categories
-        pass
     return SimpleStatus(success=True, message="Categories Deleted")
 
 
@@ -205,9 +200,7 @@ async def api_get_public_chat(categories_id: str, chat_id: str) -> ChatSession:
     name="Get Chat LNURL",
     summary="Get LNURL for chat balance funding.",
 )
-async def api_get_chat_lnurl(
-    categories_id: str, chat_id: str, request: Request
-) -> dict:
+async def api_get_chat_lnurl(categories_id: str, chat_id: str, request: Request) -> dict:
     chat = await get_chat_for_category(categories_id, chat_id)
     if not chat:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Chat not found.")

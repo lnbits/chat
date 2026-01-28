@@ -39,24 +39,16 @@ async def api_lnurl_callback(
 ) -> LnurlErrorResponse | LnurlPayActionResponse:
     chat = await get_chat(chat_id)
     if not chat:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Chat does not exist."
-        )
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Chat does not exist.")
     category = await get_categories_by_id(chat.categories_id)
     if not category or not category.paid or not category.lnurlp:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Chat does not accept balance."
-        )
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Chat does not accept balance.")
 
     minimum, maximum = _chat_lnurl_limits_msat()
     if amount < minimum:
-        return LnurlErrorResponse(
-            reason=f"Amount {amount} is smaller than minimum {minimum}."
-        )
+        return LnurlErrorResponse(reason=f"Amount {amount} is smaller than minimum {minimum}.")
     if amount > maximum:
-        return LnurlErrorResponse(
-            reason=f"Amount {amount} is greater than maximum {maximum}."
-        )
+        return LnurlErrorResponse(reason=f"Amount {amount} is greater than maximum {maximum}.")
 
     wallet_id = await _resolve_category_wallet(category)
     if not wallet_id:
@@ -85,21 +77,15 @@ async def api_lnurl_callback(
 async def api_lnurl_response(request: Request, chat_id: str) -> LnurlPayResponse:
     chat = await get_chat(chat_id)
     if not chat:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Chat does not exist."
-        )
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Chat does not exist.")
     category = await get_categories_by_id(chat.categories_id)
     if not category or not category.paid or not category.lnurlp:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Chat does not accept balance."
-        )
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Chat does not accept balance.")
 
     url = request.url_for("chat.api_lnurl_callback", chat_id=chat.id)
     callback_url = parse_obj_as(CallbackUrl, str(url))
 
-    metadata = LnurlPayMetadata(
-        json.dumps([["text/plain", f"Chat balance for {category.name}"]])
-    )
+    metadata = LnurlPayMetadata(json.dumps([["text/plain", f"Chat balance for {category.name}"]]))
     minimum, maximum = _chat_lnurl_limits_msat()
 
     return LnurlPayResponse(
