@@ -1,8 +1,11 @@
 {
-  "name": "Chat",
-  "short_description": "Paid chat and support",
-  "tile": "/chat/static/image/chat.png",
+  "id": "chat",
   "version": "0.1.0",
+  "name": "Chat",
+  "repo": "https://github.com/lnbits/chat",
+  "short_description": "Paid chat and support",
+  "description": "",
+  "tile": "/chat/static/image/chat.png",
   "min_lnbits_version": "1.4.0",
   "contributors": [
     {
@@ -33,5 +36,8 @@
   ],
   "description_md": "https://raw.githubusercontent.com/lnbits/chat/main/description.md",
   "terms_and_conditions_md": "https://raw.githubusercontent.com/lnbits/chat/main/toc.md",
-  "license": "MIT"
+  "tags": ["Merchant", "Commerce", "Communication", "Support"],
+  "license": "MIT",
+  "donate": "",
+  "hidden": false
 }
