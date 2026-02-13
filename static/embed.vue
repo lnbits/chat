@@ -9,6 +9,7 @@
         :label="launcherText"
         @click="toggleMinimize"
       ></q-btn>
+      <i class="text-caption q-pl-sm">powered by LNbits</i>
     </div>
     <div v-else class="chat-embed-body">
       <div class="chat-container" ref="chatScroll">
