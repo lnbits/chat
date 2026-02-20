@@ -65,7 +65,8 @@ window.PageChatEmbed = {
         window.parent.postMessage(
           {
             source: 'lnbits-chat-embed',
-            open: !this.isMinimized
+            open: !this.isMinimized,
+            url: window.location.href
           },
           '*'
         )
