@@ -12,6 +12,26 @@
       <i class="text-caption q-pl-sm">powered by LNbits</i>
     </div>
     <div v-else class="chat-embed-body">
+      <div class="chat-embed-header q-pa-sm">
+        <div v-if="!chatData.messages.length" class="text-caption text-grey">
+          Start the conversation.
+        </div>
+        <div class="chat-embed-actions">
+          <q-btn
+            v-if="chatId"
+            flat
+            dense
+            icon="open_in_new"
+            :href="publicChatLink"
+            target="_blank"
+          >
+            <q-tooltip>Open public chat</q-tooltip>
+          </q-btn>
+          <q-btn flat dense icon="expand_less" @click="toggleMinimize">
+            <q-tooltip>Minimize</q-tooltip>
+          </q-btn>
+        </div>
+      </div>
       <div class="chat-container" ref="chatScroll">
         <div class="chat-messages q-pa-md">
           <q-chat-message
@@ -28,9 +48,6 @@
             </div>
             <div v-else v-text="message.message"></div>
           </q-chat-message>
-          <div v-if="!chatData.messages.length" class="text-caption text-grey">
-            Start the conversation.
-          </div>
         </div>
       </div>
       <q-separator></q-separator>
@@ -54,17 +71,6 @@
             :disable="!messageInput || sending"
           ></q-btn>
           <q-btn
-            v-if="chatId"
-            class="q-ml-sm"
-            flat
-            dense
-            icon="open_in_new"
-            :href="publicChatLink"
-            target="_blank"
-          >
-            <q-tooltip>Open public chat</q-tooltip>
-          </q-btn>
-          <q-btn
             v-if="publicPageData.tips"
             class="q-ml-sm"
             outline
@@ -83,15 +89,6 @@
             @click="openLnurlDialog"
           >
             <q-tooltip>Fund balance</q-tooltip>
-          </q-btn>
-          <q-btn
-            class="q-ml-sm"
-            flat
-            dense
-            icon="expand_less"
-            @click="toggleMinimize"
-          >
-            <q-tooltip>Minimize</q-tooltip>
           </q-btn>
         </q-form>
         <div v-if="pendingAmount" class="text-caption text-grey q-mt-sm">
@@ -222,6 +219,18 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+}
+
+.chat-embed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chat-embed-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .chat-container {
