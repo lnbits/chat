@@ -23,20 +23,20 @@ from .crud import (
 )
 from .helpers import chat_lnurl_url, lnurl_encode_chat
 from .models import (
+    DEFAULT_PUBLIC_NOTE,
     Categories,
     CategoriesFilters,
     ChatMessage,
+    ChatNotifications,
     ChatPaymentRequest,
     ChatSession,
     ChatsFilters,
     CreateCategories,
     CreateChat,
     CreateChatMessage,
-    ChatNotifications,
     PublicCategories,
     TipRequest,
 )
-from .models import DEFAULT_PUBLIC_NOTE
 from .services import (
     create_public_chat,
     get_public_chat,

@@ -55,12 +55,14 @@ window.PageChatPublic = {
     },
     notifyEmailAvailable() {
       return (
-        this.notificationsEnabled && !!this.publicPageData?.notify_email_available
+        this.notificationsEnabled &&
+        !!this.publicPageData?.notify_email_available
       )
     },
     notifyNostrAvailable() {
       return (
-        this.notificationsEnabled && !!this.publicPageData?.notify_nostr_available
+        this.notificationsEnabled &&
+        !!this.publicPageData?.notify_nostr_available
       )
     }
   },
