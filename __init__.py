@@ -6,14 +6,19 @@ from loguru import logger
 
 from .crud import db
 from .tasks import cleanup_empty_chats, wait_for_paid_invoices
-from .views import chat_generic_router
+from .views import chat_generic_router, chat_public_router
 from .views_api import chat_api_router
 from .views_lnurl import chat_lnurl_router
 
-chat_ext: APIRouter = APIRouter(prefix="/chat", tags=["Chat"])
-chat_ext.include_router(chat_lnurl_router)
-chat_ext.include_router(chat_api_router)
-chat_ext.include_router(chat_generic_router)
+chat_ext: APIRouter = APIRouter(tags=["Chat"])
+
+chat_router: APIRouter = APIRouter(prefix="/chat", tags=["Chat"])
+chat_router.include_router(chat_lnurl_router)
+chat_router.include_router(chat_api_router)
+chat_router.include_router(chat_generic_router)
+
+chat_ext.include_router(chat_router)
+chat_ext.include_router(chat_public_router)
 
 
 chat_static_files = [

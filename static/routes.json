@@ -28,5 +28,11 @@
     "name": "PageChatEmbedChat",
     "template": "/chat/static/embed.vue",
     "component": "/chat/static/embed.js"
+  },
+  {
+    "path": "/chat/chats/:id",
+    "name": "PageChatInstanceList",
+    "template": "/chat/static/instance_list.vue",
+    "component": "/chat/static/instance_list.js"
   }
 ]

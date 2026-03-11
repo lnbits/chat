@@ -363,6 +363,28 @@ async def api_get_chats_paginated(
 
 
 @chat_api_router.get(
+    "/api/v1/chats/{categories_id}/paginated",
+    name="Chats List (Category)",
+    summary="get paginated list of chats for a category",
+    response_description="list of chats",
+    openapi_extra=generate_filter_params_openapi(ChatsFilters),
+    response_model=Page[ChatSession],
+)
+async def api_get_chats_paginated_for_category(
+    categories_id: str,
+    account_id: AccountId = Depends(check_account_id_exists),
+    filters: Filters = Depends(chats_filters),
+) -> Page[ChatSession]:
+    categories = await get_categories(account_id.id, categories_id)
+    if not categories:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Categories not found.")
+    return await get_chats_paginated(
+        categories_ids=[categories_id],
+        filters=filters,
+    )
+
+
+@chat_api_router.get(
     "/api/v1/chats/{chat_id}",
     name="Get Chat (Admin)",
     summary="Get the chat with this id.",

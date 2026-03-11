@@ -44,6 +44,19 @@
                     flat
                     dense
                     size="xs"
+                    icon="forum"
+                    color="primary"
+                    type="a"
+                    :href="'/chat/chats/' + props.row.id"
+                    target="_blank"
+                    class="q-mr-sm"
+                  >
+                    <q-tooltip>Open chats list</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    flat
+                    dense
+                    size="xs"
                     icon="content_copy"
                     color="grey"
                     class="q-mr-sm"
