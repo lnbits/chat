@@ -32,6 +32,14 @@
           </q-btn>
         </div>
       </div>
+      <q-banner
+        v-if="publicPageData.public_note"
+        class="q-mx-md q-mb-sm bg-grey-2 text-grey-8"
+        rounded
+        dense
+      >
+        <span v-text="publicPageData.public_note"></span>
+      </q-banner>
       <div class="chat-container" ref="chatScroll">
         <div class="chat-messages q-pa-md">
           <q-chat-message
@@ -100,6 +108,41 @@
         >
           Balance: <span v-text="chatData.balance"></span> sats
         </div>
+        <q-expansion-item
+          v-if="
+            !authUser &&
+            notificationsEnabled &&
+            (notifyEmailAvailable || notifyNostrAvailable)
+          "
+          dense
+          icon="notifications"
+          label="Get notified when we reply"
+          class="q-mt-sm"
+        >
+          <div class="q-gutter-sm q-mt-sm">
+            <q-input
+              v-if="notifyEmailAvailable"
+              dense
+              outlined
+              v-model.trim="notificationForm.email"
+              label="Email"
+            ></q-input>
+            <q-input
+              v-if="notifyNostrAvailable"
+              dense
+              outlined
+              v-model.trim="notificationForm.nostr"
+              label="Nostr identifier"
+            ></q-input>
+            <q-btn
+              unelevated
+              color="primary"
+              label="Save notifications"
+              :loading="notificationForm.saving"
+              @click="saveNotifications"
+            ></q-btn>
+          </div>
+        </q-expansion-item>
       </div>
     </div>
 

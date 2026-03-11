@@ -30,6 +30,15 @@
           </q-btn>
         </q-card-section>
 
+        <q-banner
+          v-if="publicPageData.public_note"
+          class="q-mx-md q-mb-sm bg-grey-2 text-grey-8"
+          rounded
+          dense
+        >
+          <span v-text="publicPageData.public_note"></span>
+        </q-banner>
+
         <q-card-section
           class="col q-pa-md"
           style="min-height: 0; overflow-y: auto"
@@ -98,6 +107,48 @@
     </div>
 
     <div class="col-12 col-lg-4 q-gutter-y-md">
+      <q-card
+        v-if="
+          !authUser &&
+          notificationsEnabled &&
+          (notifyEmailAvailable || notifyNostrAvailable)
+        "
+      >
+        <q-card-section>
+          <div class="text-subtitle2">Get notified</div>
+          <div class="text-caption text-grey">
+            We will message you when someone replies.
+          </div>
+        </q-card-section>
+        <q-card-section class="q-pt-none q-gutter-sm">
+          <q-input
+            v-if="notifyEmailAvailable"
+            filled
+            dense
+            v-model.trim="notificationForm.email"
+            label="Email"
+            hint="Optional"
+          ></q-input>
+          <q-input
+            v-if="notifyNostrAvailable"
+            filled
+            dense
+            v-model.trim="notificationForm.nostr"
+            label="Nostr identifier"
+            hint="npub or nip05"
+          ></q-input>
+        </q-card-section>
+        <q-card-section class="q-pt-none">
+          <q-btn
+            unelevated
+            color="primary"
+            label="Save notifications"
+            :loading="notificationForm.saving"
+            @click="saveNotifications"
+          ></q-btn>
+        </q-card-section>
+      </q-card>
+
       <q-card>
         <q-card-section>
           <div class="text-subtitle2">Participants</div>

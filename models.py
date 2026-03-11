@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from lnbits.db import FilterModel
 from pydantic import BaseModel, Field
 
+DEFAULT_PUBLIC_NOTE = "we aim to reply instantly but it may take up to 24hrs for a reply"
+
 
 class CreateCategories(BaseModel):
     name: str
@@ -14,6 +16,8 @@ class CreateCategories(BaseModel):
     price_chars: float | None = None
     denomination: str | None = "sat"
     claim_split: float | None = 0
+    guest_notifications: bool | None = False
+    public_note: str | None = DEFAULT_PUBLIC_NOTE
     notify_telegram: str | None = None
     notify_nostr: str | None = None
     notify_email: str | None = None
@@ -31,6 +35,8 @@ class Categories(BaseModel):
     price_chars: float | None = None
     denomination: str | None = "sat"
     claim_split: float | None = 0
+    guest_notifications: bool | None = False
+    public_note: str | None = DEFAULT_PUBLIC_NOTE
     notify_telegram: str | None = None
     notify_nostr: str | None = None
     notify_email: str | None = None
@@ -49,6 +55,10 @@ class PublicCategories(BaseModel):
     price_chars: float | None = None
     denomination: str | None = "sat"
     claim_split: float | None = 0
+    guest_notifications: bool | None = False
+    public_note: str | None = DEFAULT_PUBLIC_NOTE
+    notify_email_available: bool | None = False
+    notify_nostr_available: bool | None = False
 
 
 class CategoriesFilters(FilterModel):
@@ -111,6 +121,8 @@ class ChatSession(BaseModel):
     balance: int = 0
     claimed_by_id: str | None = None
     claimed_by_name: str | None = None
+    notify_email: str | None = None
+    notify_nostr: str | None = None
     participants: list[dict] = Field(default_factory=list)
     messages: list[dict] = Field(default_factory=list)
     last_message_at: datetime | None = None
@@ -129,6 +141,11 @@ class CreateChatMessage(BaseModel):
     sender_name: str
     sender_role: str
     message: str
+
+
+class ChatNotifications(BaseModel):
+    email: str | None = None
+    nostr: str | None = None
 
 
 class ChatPaymentRequest(BaseModel):

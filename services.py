@@ -8,6 +8,7 @@ from lnbits.core.models import Payment
 from lnbits.core.services import create_invoice, pay_invoice, websocket_manager
 from lnbits.core.services.notifications import send_notification
 from lnbits.helpers import urlsafe_short_hash
+from lnbits.settings import settings
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from loguru import logger
 
@@ -21,6 +22,7 @@ from .crud import (
     update_chat,
     update_chat_payment,
 )
+from .helpers import is_valid_email_address
 from .models import (
     Categories,
     ChatMessage,
@@ -162,6 +164,29 @@ async def _notify_new_chat(
     )
 
 
+async def _notify_chat_reply(
+    category: Categories,
+    chat: ChatSession,
+    message_text: str,
+    base_url: str | None = None,
+) -> None:
+    if not category.guest_notifications:
+        return
+    email = (chat.notify_email or "").strip()
+    nostr = (chat.notify_nostr or "").strip()
+    if not email and not nostr:
+        return
+    chat_link = _build_chat_link(base_url, chat)
+    message = f'New reply: "{message_text}" {chat_link}'
+    await send_notification(
+        None,
+        [nostr] if nostr else [],
+        [email] if email else [],
+        message,
+        "chat.reply",
+    )
+
+
 async def create_public_chat(
     categories_id: str,
     data: CreateChat,
@@ -215,6 +240,8 @@ def _ensure_participant(chat: ChatSession, sender_id: str, sender_name: str, sen
 def _sanitize_public_chat(chat: ChatSession) -> ChatSession:
     sanitized = chat.copy(deep=True)
     sanitized.claimed_by_id = None
+    sanitized.notify_email = None
+    sanitized.notify_nostr = None
     for participant in sanitized.participants:
         if participant.get("role") == "admin":
             name = participant.get("name") or "admin"
@@ -331,6 +358,7 @@ async def _send_free_message(
     data: CreateChatMessage,
     sender_name: str,
     base_url: str | None,
+    user_id: str | None = None,
 ) -> ChatPaymentRequest:
     message = ChatMessage(
         id=urlsafe_short_hash(),
@@ -343,6 +371,8 @@ async def _send_free_message(
     if not chat.messages:
         await _notify_new_chat(category, chat, base_url, data.message)
     await _append_message(chat, message, unread=True)
+    if user_id:
+        await _notify_chat_reply(category, chat, data.message, base_url)
     return ChatPaymentRequest(chat_id=chat.id, pending=False, message_id=message.id)
 
 
@@ -379,7 +409,7 @@ async def send_public_message(
     if category.paid and amount > 0 and not user_id:
         return await _create_payg_payment_request(category, chat, amount, data, sender_name)
 
-    return await _send_free_message(category, chat, data, sender_name, base_url)
+    return await _send_free_message(category, chat, data, sender_name, base_url, user_id=user_id)
 
 
 async def send_admin_message(
@@ -400,7 +430,45 @@ async def send_admin_message(
         created_at=datetime.now(timezone.utc),
     )
     await _append_message(chat, message, unread=False)
+    category = await get_categories_by_id(chat.categories_id)
+    if category:
+        await _notify_chat_reply(category, chat, data.message)
     return message
+
+
+async def update_chat_notifications(
+    categories_id: str,
+    chat_id: str,
+    email: str | None,
+    nostr: str | None,
+) -> ChatSession:
+    category = await get_categories_by_id(categories_id)
+    if not category:
+        raise ValueError("Invalid categories ID.")
+    if not category.guest_notifications:
+        raise ValueError("Guest notifications are disabled for this chat.")
+
+    chat = await get_chat_for_category(categories_id, chat_id)
+    if not chat:
+        raise ValueError("Chat not found.")
+
+    email_value = (email or "").strip()
+    nostr_value = (nostr or "").strip()
+
+    if email_value:
+        if not settings.lnbits_email_notifications_enabled:
+            raise ValueError("Email notifications are disabled.")
+        if not is_valid_email_address(email_value):
+            raise ValueError("Invalid email address.")
+    if nostr_value:
+        if not settings.is_nostr_notifications_configured():
+            raise ValueError("Nostr notifications are disabled.")
+
+    chat.notify_email = email_value or None
+    chat.notify_nostr = nostr_value or None
+    chat.updated_at = datetime.now(timezone.utc)
+    await update_chat(chat)
+    return chat
 
 
 async def mark_chat_resolved(chat_id: str, resolved: bool) -> ChatSession:

@@ -4,6 +4,7 @@ from lnbits.decorators import check_account_exists
 from lnbits.helpers import template_renderer
 
 chat_generic_router = APIRouter()
+chat_public_router = APIRouter()
 
 
 def chat_renderer():
@@ -17,3 +18,10 @@ chat_generic_router.add_api_route("/{categories_id}", methods=["GET"], endpoint=
 chat_generic_router.add_api_route("/{categories_id}/{chat_id}", methods=["GET"], endpoint=index_public)
 chat_generic_router.add_api_route("/embed/{categories_id}", methods=["GET"], endpoint=index_public)
 chat_generic_router.add_api_route("/embed/{categories_id}/{chat_id}", methods=["GET"], endpoint=index_public)
+
+chat_public_router.add_api_route(
+    "/chat/chats/{categories_id}",
+    methods=["GET"],
+    endpoint=index,
+    dependencies=[Depends(check_account_exists)],
+)

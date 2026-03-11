@@ -31,7 +31,12 @@ window.PageChatPublic = {
       balanceSocket: null,
       lnurlPay: '',
       authUser: null,
-      autoScroll: true
+      autoScroll: true,
+      notificationForm: {
+        email: '',
+        nostr: '',
+        saving: false
+      }
     }
   },
   computed: {
@@ -44,6 +49,21 @@ window.PageChatPublic = {
     isClaimedByMe() {
       if (!this.authUser?.username) return false
       return this.chatData.claimed_by_name === this.authUser.username
+    },
+    notificationsEnabled() {
+      return !!this.publicPageData?.guest_notifications
+    },
+    notifyEmailAvailable() {
+      return (
+        this.notificationsEnabled &&
+        !!this.publicPageData?.notify_email_available
+      )
+    },
+    notifyNostrAvailable() {
+      return (
+        this.notificationsEnabled &&
+        !!this.publicPageData?.notify_nostr_available
+      )
     }
   },
 
@@ -153,6 +173,7 @@ window.PageChatPublic = {
       if (chatId) {
         this.chatId = chatId
         await this.fetchChat()
+        this.loadNotificationForm()
         return
       }
       const payload = {
@@ -168,9 +189,62 @@ window.PageChatPublic = {
       this.chatId = data.id
       this.chatData = data
       this.updateChatUrl()
+      this.loadNotificationForm()
 
       this.autoScroll = true
       await this.scrollToBottomSmooth()
+    },
+
+    notificationStorageKey() {
+      if (!this.chatId) return ''
+      return `lnbits.chat.notifications.${this.chatId}`
+    },
+
+    loadNotificationForm() {
+      const key = this.notificationStorageKey()
+      if (!key) return
+      const existing = this.$q.localStorage.getItem(key)
+      if (existing && typeof existing === 'object') {
+        this.notificationForm.email = existing.email || ''
+        this.notificationForm.nostr = existing.nostr || ''
+      }
+    },
+
+    async saveNotifications() {
+      if (!this.chatId || !this.notificationsEnabled) return
+      const payload = {}
+      if (this.notifyEmailAvailable) {
+        payload.email = this.notificationForm.email || ''
+      }
+      if (this.notifyNostrAvailable) {
+        payload.nostr = this.notificationForm.nostr || ''
+      }
+      if (!Object.keys(payload).length) return
+
+      this.notificationForm.saving = true
+      try {
+        await LNbits.api.request(
+          'POST',
+          `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/public/notifications`,
+          null,
+          payload
+        )
+        const key = this.notificationStorageKey()
+        if (key) {
+          this.$q.localStorage.set(key, {
+            email: this.notificationForm.email || '',
+            nostr: this.notificationForm.nostr || ''
+          })
+        }
+        Quasar.Notify.create({
+          type: 'positive',
+          message: 'Notification preferences saved'
+        })
+      } catch (error) {
+        LNbits.utils.notifyApiError(error)
+      } finally {
+        this.notificationForm.saving = false
+      }
     },
 
     updateChatUrl() {
