@@ -422,6 +422,22 @@
         <q-input
           filled
           dense
+          type="textarea"
+          autogrow
+          v-model.trim="categoriesFormDialog.data.public_note"
+          label="Opening note"
+          hint="Shown when the chat opens (optional)"
+        ></q-input>
+
+        <q-toggle
+          v-model="categoriesFormDialog.data.guest_notifications"
+          label="Allow guest reply notifications"
+          color="primary"
+        ></q-toggle>
+
+        <q-input
+          filled
+          dense
           v-model.trim="categoriesFormDialog.data.notify_telegram"
           label="Telegram Chat ID"
           hint="Optional notification target"

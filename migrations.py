@@ -173,3 +173,30 @@ async def m010_chat_claim_split(db):
         ALTER TABLE chat.categories ADD COLUMN claim_split REAL DEFAULT 0;
         """
     )
+
+
+async def m011_chat_guest_notifications(db):
+    """
+    Add guest notification fields and public note.
+    """
+
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN guest_notifications BOOLEAN DEFAULT 0;
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN public_note TEXT;
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.chats ADD COLUMN notify_email TEXT;
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.chats ADD COLUMN notify_nostr TEXT;
+        """
+    )

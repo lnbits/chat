@@ -7,6 +7,7 @@ from lnbits.core.models.users import AccountId
 from lnbits.db import Filters, Page
 from lnbits.decorators import check_account_id_exists, optional_user_id, parse_filters
 from lnbits.helpers import generate_filter_params_openapi
+from lnbits.settings import settings
 
 from .crud import (
     create_categories,
@@ -31,9 +32,11 @@ from .models import (
     CreateCategories,
     CreateChat,
     CreateChatMessage,
+    ChatNotifications,
     PublicCategories,
     TipRequest,
 )
+from .models import DEFAULT_PUBLIC_NOTE
 from .services import (
     create_public_chat,
     get_public_chat,
@@ -43,6 +46,7 @@ from .services import (
     send_admin_message,
     send_public_message,
     toggle_chat_claim,
+    update_chat_notifications,
 )
 
 categories_filters = parse_filters(CategoriesFilters)
@@ -63,6 +67,8 @@ async def api_create_categories(
         payload["claim_split"] = 0
     if payload.get("claim_split") is not None:
         payload["claim_split"] = max(0, min(float(payload["claim_split"]), 90))
+    if payload.get("public_note") is None:
+        payload["public_note"] = DEFAULT_PUBLIC_NOTE
     categories = await create_categories(account_id.id, CreateCategories(**payload))
     return categories
 
@@ -84,6 +90,8 @@ async def api_update_categories(
         payload["claim_split"] = 0
     if payload.get("claim_split") is not None:
         payload["claim_split"] = max(0, min(float(payload["claim_split"]), 90))
+    if payload.get("public_note") is None:
+        payload["public_note"] = DEFAULT_PUBLIC_NOTE
     categories = await update_categories(Categories(**{**categories.dict(), **payload}))
     return categories
 
@@ -141,6 +149,10 @@ async def api_get_public_categories(categories_id: str) -> PublicCategories:
 
     payload = categories.dict()
     payload["claim_split"] = categories.claim_split or 0
+    if payload.get("public_note") is None:
+        payload["public_note"] = DEFAULT_PUBLIC_NOTE
+    payload["notify_email_available"] = settings.lnbits_email_notifications_enabled
+    payload["notify_nostr_available"] = settings.is_nostr_notifications_configured()
     return PublicCategories(**payload)
 
 
@@ -229,6 +241,27 @@ async def api_send_public_message(
     try:
         base_url = str(request.base_url)
         return await send_public_message(categories_id, chat_id, data, user_id=user_id, base_url=base_url)
+    except ValueError as exc:
+        raise HTTPException(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+
+
+@chat_api_router.post(
+    "/api/v1/chats/{categories_id}/{chat_id}/public/notifications",
+    name="Update Chat Notifications (Public)",
+    summary="Attach notification identifiers for this chat (public endpoint).",
+    response_model=SimpleStatus,
+)
+async def api_update_chat_notifications(
+    categories_id: str,
+    chat_id: str,
+    data: ChatNotifications,
+    user_id: str | None = Depends(optional_user_id),
+) -> SimpleStatus:
+    if user_id:
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Notifications are only available for guests.")
+    try:
+        await update_chat_notifications(categories_id, chat_id, data.email, data.nostr)
+        return SimpleStatus(success=True, message="Notifications updated.")
     except ValueError as exc:
         raise HTTPException(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
