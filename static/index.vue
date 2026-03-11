@@ -431,33 +431,40 @@
 
         <q-toggle
           v-model="categoriesFormDialog.data.guest_notifications"
-          label="Allow guest reply notifications"
+          label="Allow guest reply notifications (a user will be notified when you reply)"
           color="primary"
         ></q-toggle>
 
-        <q-input
-          filled
+        <q-expansion-item
+          icon="notifications"
+          label="Get notified on new chats"
           dense
-          v-model.trim="categoriesFormDialog.data.notify_telegram"
-          label="Telegram Chat ID"
-          hint="Optional notification target"
-        ></q-input>
+          class="q-mt-sm"
+        >
+          <q-input
+            filled
+            dense
+            v-model.trim="categoriesFormDialog.data.notify_telegram"
+            label="Telegram Chat ID"
+            hint="Optional notification target"
+          ></q-input>
 
-        <q-input
-          filled
-          dense
-          v-model.trim="categoriesFormDialog.data.notify_nostr"
-          label="Nostr identifier (npub or nip05)"
-          hint="Optional notification target"
-        ></q-input>
+          <q-input
+            filled
+            dense
+            v-model.trim="categoriesFormDialog.data.notify_nostr"
+            label="Nostr identifier (npub or nip05)"
+            hint="Optional notification target"
+          ></q-input>
 
-        <q-input
-          filled
-          dense
-          v-model.trim="categoriesFormDialog.data.notify_email"
-          label="Email address (comma separated)"
-          hint="Optional notification target"
-        ></q-input>
+          <q-input
+            filled
+            dense
+            v-model.trim="categoriesFormDialog.data.notify_email"
+            label="Email address (comma separated)"
+            hint="Optional notification target"
+          ></q-input>
+        </q-expansion-item>
 
         <div class="row q-mt-lg">
           <q-btn @click="saveCategories" unelevated color="primary">
