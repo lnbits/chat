@@ -81,8 +81,8 @@ async def m005_chats(db):
             id TEXT PRIMARY KEY,
             categories_id TEXT NOT NULL,
             title TEXT,
-            resolved BOOLEAN DEFAULT 0,
-            unread BOOLEAN DEFAULT 1,
+            resolved BOOLEAN DEFAULT FALSE,
+            unread BOOLEAN DEFAULT TRUE,
             participants TEXT DEFAULT '[]',
             messages TEXT DEFAULT '[]',
             last_message_at TIMESTAMP,
@@ -110,7 +110,7 @@ async def m006_chat_payments(db):
             message TEXT NOT NULL,
             amount {db.big_int} NOT NULL,
             payment_type TEXT NOT NULL DEFAULT 'message',
-            paid BOOLEAN DEFAULT 0,
+            paid BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP NOT NULL DEFAULT {db.timestamp_now}
         );
     """
@@ -136,7 +136,7 @@ async def m008_chat_lnurlp_balance(db):
 
     await db.execute(
         """
-        ALTER TABLE chat.categories ADD COLUMN lnurlp BOOLEAN DEFAULT 0;
+        ALTER TABLE chat.categories ADD COLUMN lnurlp BOOLEAN DEFAULT FALSE;
         """
     )
     await db.execute(
@@ -182,7 +182,7 @@ async def m011_chat_guest_notifications(db):
 
     await db.execute(
         """
-        ALTER TABLE chat.categories ADD COLUMN guest_notifications BOOLEAN DEFAULT 0;
+        ALTER TABLE chat.categories ADD COLUMN guest_notifications BOOLEAN DEFAULT FALSE;
         """
     )
     await db.execute(
