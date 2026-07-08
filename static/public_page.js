@@ -64,6 +64,18 @@ window.PageChatPublic = {
         this.notificationsEnabled &&
         !!this.publicPageData?.notify_nostr_available
       )
+    },
+    isAfterHours() {
+      return (
+        !!this.publicPageData?.schedule_enabled &&
+        !this.publicPageData?.schedule_available
+      )
+    },
+    canSendMessage() {
+      if (!this.messageInput || this.sending) return false
+      if (this.isAfterHours && !this.authUser && !this.notificationForm.email)
+        return false
+      return true
     }
   },
 
@@ -259,9 +271,28 @@ window.PageChatPublic = {
         `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/public`
       )
       this.chatData = data
+      await this.markPublicSeen()
 
       this.autoScroll = true
       await this.scrollToBottomSmooth()
+    },
+
+    async markPublicSeen() {
+      if (!this.chatId || document.hidden) return
+      if (!this.autoScroll) return
+      try {
+        const {data} = await LNbits.api.request(
+          'POST',
+          `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/public/seen`,
+          null
+        )
+        if (data?.public_last_seen_message_id) {
+          this.chatData.public_last_seen_message_id =
+            data.public_last_seen_message_id
+        }
+      } catch (error) {
+        console.warn(error)
+      }
     },
 
     async toggleClaim() {
@@ -332,8 +363,12 @@ window.PageChatPublic = {
         const payload = {
           sender_id: this.participantId,
           sender_name: this.participantName,
-          sender_role: 'public',
-          message: messageText
+          sender_role: this.authUser ? 'admin' : 'public',
+          message: messageText,
+          notify_email:
+            this.isAfterHours && !this.authUser
+              ? this.notificationForm.email || ''
+              : undefined
         }
         const {data} = await LNbits.api.request(
           'POST',
@@ -510,6 +545,9 @@ window.PageChatPublic = {
                 })
               }
             }
+            if (message.sender_role === 'admin') {
+              this.markPublicSeen()
+            }
           }
           if (payload.type === 'resolved') {
             this.chatData.resolved = payload.resolved
@@ -567,9 +605,13 @@ window.PageChatPublic = {
     // One extra nudge once the DOM exists
     this.autoScroll = true
     this.scrollToBottomSmooth()
+    window.addEventListener('focus', this.markPublicSeen)
+    document.addEventListener('visibilitychange', this.markPublicSeen)
   },
 
   beforeUnmount() {
+    window.removeEventListener('focus', this.markPublicSeen)
+    document.removeEventListener('visibilitychange', this.markPublicSeen)
     if (this.chatSocket) {
       this.chatSocket.close()
     }

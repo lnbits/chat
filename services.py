@@ -1,12 +1,17 @@
 import json
 import math
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from lnbits.core.crud.users import get_user
 from lnbits.core.crud.wallets import get_wallets
 from lnbits.core.models import Payment
 from lnbits.core.services import create_invoice, pay_invoice, websocket_manager
-from lnbits.core.services.notifications import send_notification
+from lnbits.core.services.notifications import (
+    send_email_notification,
+    send_notification,
+    send_telegram_notification,
+)
 from lnbits.helpers import urlsafe_short_hash
 from lnbits.settings import settings
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
@@ -15,17 +20,21 @@ from loguru import logger
 from .crud import (
     create_chat,
     create_chat_payment,
+    create_notification_job,
     get_categories_by_id,
     get_chat,
     get_chat_for_category,
     get_chat_payment,
+    get_due_notification_jobs,
     update_chat,
     update_chat_payment,
+    update_notification_job,
 )
 from .helpers import is_valid_email_address
 from .models import (
     Categories,
     ChatMessage,
+    ChatNotificationJob,
     ChatParticipant,
     ChatPayment,
     ChatPaymentRequest,
@@ -35,6 +44,17 @@ from .models import (
 )
 
 MAX_PARTICIPANTS = 10
+USER_EMAIL_DELAY_MINUTES = 5
+TELEGRAM_REMINDER_DELAY_MINUTES = 2
+
+CHAT_TEMPLATE_DEFAULTS = {
+    "admin_after_hours_subject": "New chat message",
+    "admin_after_hours_body": (
+        "New chat message from {sender_name} ({guest_email})\n\n" "{message}\n\nOpen chat: {chat_url}"
+    ),
+    "user_new_message_subject": "You have a new chat message",
+    "user_new_message_body": ("You have a new reply from {category_name}.\n\n" "{message}\n\nOpen chat: {chat_url}"),
+}
 
 
 def _clean_name(value: str | None, fallback: str) -> str:
@@ -129,6 +149,113 @@ def _parse_notify_emails(raw: str | None) -> list[str]:
     return [email.strip() for email in raw.split(",") if email.strip()]
 
 
+def _is_true(value: str | bool | None) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _parse_schedule_days(value: str | list[int] | None) -> list[int]:
+    if not value:
+        return []
+    if isinstance(value, list):
+        days = [int(day) for day in value]
+        if any(day < 0 or day > 6 for day in days):
+            raise ValueError("Schedule days must be between 0 and 6.")
+        return sorted(set(days))
+    days = []
+    for item in value.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        day = int(item)
+        if day < 0 or day > 6:
+            raise ValueError("Schedule days must be between 0 and 6.")
+        days.append(day)
+    return sorted(set(days))
+
+
+def _schedule_days_to_string(value: str | list[int] | None) -> str:
+    if isinstance(value, list):
+        return ",".join(str(day) for day in sorted(set(value)))
+    return value or "0,1,2,3,4"
+
+
+def _parse_schedule_time(value: str | None) -> time:
+    if not value:
+        raise ValueError("Schedule time is required.")
+    try:
+        return time.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError("Schedule time must use HH:MM format.") from exc
+
+
+def _validate_timezone(value: str | None) -> str:
+    timezone_name = (value or "UTC").strip() or "UTC"
+    try:
+        ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError as exc:
+        raise ValueError("Unknown schedule timezone.") from exc
+    return timezone_name
+
+
+def normalize_category_schedule_payload(data: dict) -> dict:
+    payload = dict(data)
+    payload["schedule_enabled"] = _is_true(payload.get("schedule_enabled"))
+    payload["schedule_timezone"] = _validate_timezone(payload.get("schedule_timezone"))
+    days = _parse_schedule_days(_schedule_days_to_string(payload.get("schedule_days")))
+    payload["schedule_days"] = ",".join(str(day) for day in days)
+    start = _parse_schedule_time(payload.get("schedule_start") or "09:00")
+    end = _parse_schedule_time(payload.get("schedule_end") or "17:00")
+    if start >= end:
+        raise ValueError("Schedule start must be before schedule end.")
+    payload["schedule_start"] = start.strftime("%H:%M")
+    payload["schedule_end"] = end.strftime("%H:%M")
+    return payload
+
+
+def _category_template(category: Categories, key: str) -> str:
+    value = getattr(category, key, None)
+    if value:
+        return value
+    return CHAT_TEMPLATE_DEFAULTS[key]
+
+
+def is_chat_available_from_config(
+    config: dict[str, str],
+    now: datetime | None = None,
+) -> bool:
+    if not _is_true(config.get("schedule_enabled")):
+        return True
+    timezone_name = _validate_timezone(config.get("schedule_timezone"))
+    tz = ZoneInfo(timezone_name)
+    local_now = now.astimezone(tz) if now else datetime.now(tz)
+    days = _parse_schedule_days(config.get("schedule_days"))
+    if local_now.weekday() not in days:
+        return False
+    start = _parse_schedule_time(config.get("schedule_start"))
+    end = _parse_schedule_time(config.get("schedule_end"))
+    return start <= local_now.time() <= end
+
+
+def get_category_schedule_metadata(category: Categories) -> dict:
+    config = {
+        "schedule_enabled": "true" if category.schedule_enabled else "false",
+        "schedule_timezone": category.schedule_timezone or "UTC",
+        "schedule_days": category.schedule_days or "0,1,2,3,4",
+        "schedule_start": category.schedule_start or "09:00",
+        "schedule_end": category.schedule_end or "17:00",
+    }
+    return {
+        "schedule_enabled": _is_true(config.get("schedule_enabled")),
+        "schedule_available": is_chat_available_from_config(config),
+        "schedule_timezone": config.get("schedule_timezone"),
+        "schedule_start": config.get("schedule_start"),
+        "schedule_end": config.get("schedule_end"),
+        "schedule_days": _parse_schedule_days(config.get("schedule_days")),
+    }
+
+
 async def _resolve_category_wallet(category: Categories) -> str | None:
     if category.wallet:
         return category.wallet
@@ -172,19 +299,205 @@ async def _notify_chat_reply(
 ) -> None:
     if not category.guest_notifications:
         return
-    email = (chat.notify_email or "").strip()
     nostr = (chat.notify_nostr or "").strip()
-    if not email and not nostr:
+    if not nostr:
         return
     chat_link = _build_chat_link(base_url, chat)
     message = f'New reply: "{message_text}" {chat_link}'
     await send_notification(
         None,
         [nostr] if nostr else [],
-        [email] if email else [],
+        [],
         message,
         "chat.reply",
     )
+
+
+async def _notify_chat_resolved_public(category: Categories, chat: ChatSession) -> None:
+    message_text = "This chat has been marked as resolved."
+    message = {
+        "sender_name": category.name,
+        "message": message_text,
+    }
+    values = _template_values(category, chat, message)
+    email = (chat.notify_email or "").strip()
+    nostr = (chat.notify_nostr or "").strip()
+    if email and settings.lnbits_email_notifications_enabled:
+        subject = _render_template(_category_template(category, "user_new_message_subject"), values)
+        body = _render_template(_category_template(category, "user_new_message_body"), values)
+        await send_email_notification([email], body, subject)
+    if nostr and settings.is_nostr_notifications_configured():
+        await send_notification(
+            None,
+            [nostr],
+            [],
+            f"{message_text} {_build_chat_link(None, chat)}",
+            "chat.resolved",
+        )
+
+
+def _render_template(template: str, values: dict[str, str]) -> str:
+    class SafeValues(dict):
+        def __missing__(self, key):
+            return "{" + key + "}"
+
+    return template.format_map(SafeValues(values))
+
+
+def _message_seen_by_public(chat: ChatSession, message_id: str) -> bool:
+    if not chat.public_last_seen_message_id:
+        return False
+    seen_index = -1
+    message_index = -1
+    for index, message in enumerate(chat.messages):
+        if message.get("id") == chat.public_last_seen_message_id:
+            seen_index = index
+        if message.get("id") == message_id:
+            message_index = index
+    return seen_index >= 0 and message_index >= 0 and seen_index >= message_index
+
+
+def _latest_unanswered_public_message(chat: ChatSession) -> dict | None:
+    last_public = None
+    last_admin_index = -1
+    for index, message in enumerate(chat.messages):
+        if message.get("sender_role") == "admin":
+            last_admin_index = index
+        if message.get("sender_role") == "public":
+            last_public = (index, message)
+    if not last_public:
+        return None
+    public_index, public_message = last_public
+    if last_admin_index > public_index:
+        return None
+    return public_message
+
+
+def _template_values(
+    category: Categories,
+    chat: ChatSession,
+    message: dict,
+    base_url: str | None = None,
+    guest_email: str | None = None,
+) -> dict[str, str]:
+    return {
+        "category_name": category.name,
+        "chat_id": chat.id,
+        "chat_url": _build_chat_link(base_url, chat),
+        "sender_name": str(message.get("sender_name") or "anon"),
+        "guest_email": guest_email or chat.notify_email or "",
+        "message": str(message.get("message") or ""),
+    }
+
+
+async def _notify_after_hours_admin(
+    category: Categories,
+    chat: ChatSession,
+    message: ChatMessage,
+    base_url: str | None,
+) -> None:
+    message_dict = _serialize_message(message)
+    values = _template_values(category, chat, message_dict, base_url, chat.notify_email)
+    subject = _render_template(_category_template(category, "admin_after_hours_subject"), values)
+    body = _render_template(_category_template(category, "admin_after_hours_body"), values)
+    emails = _parse_notify_emails(category.notify_email)
+    if emails:
+        await send_email_notification(emails, body, subject)
+    if category.notify_telegram and settings.is_telegram_notifications_configured():
+        await send_telegram_notification(category.notify_telegram, body)
+
+
+async def _schedule_user_reply_email(
+    category: Categories,
+    chat: ChatSession,
+    message: ChatMessage,
+) -> None:
+    if not (chat.notify_email or "").strip():
+        return
+    await create_notification_job(
+        ChatNotificationJob(
+            id=urlsafe_short_hash(),
+            chat_id=chat.id,
+            categories_id=chat.categories_id,
+            job_type="user_email",
+            message_id=message.id,
+            due_at=datetime.now(timezone.utc) + timedelta(minutes=USER_EMAIL_DELAY_MINUTES),
+        )
+    )
+
+
+async def _schedule_public_telegram_reminder(
+    category: Categories,
+    chat: ChatSession,
+    message: ChatMessage,
+) -> None:
+    if not category.notify_telegram:
+        return
+    config = get_category_schedule_metadata(category)
+    if not is_chat_available_from_config(config):
+        return
+    await create_notification_job(
+        ChatNotificationJob(
+            id=urlsafe_short_hash(),
+            chat_id=chat.id,
+            categories_id=chat.categories_id,
+            job_type="telegram_reminder",
+            message_id=message.id,
+            due_at=datetime.now(timezone.utc) + timedelta(minutes=TELEGRAM_REMINDER_DELAY_MINUTES),
+        )
+    )
+
+
+async def _prepare_after_hours_email(
+    category: Categories,
+    chat: ChatSession,
+    data: CreateChatMessage,
+    user_id: str | None = None,
+) -> bool:
+    config = get_category_schedule_metadata(category)
+    after_hours = data.sender_role == "public" and not user_id and not is_chat_available_from_config(config)
+    if not after_hours:
+        return False
+    email_value = (data.notify_email or "").strip()
+    if not email_value:
+        raise ValueError("Email address is required outside working hours.")
+    if not settings.lnbits_email_notifications_enabled:
+        raise ValueError("Email notifications are disabled.")
+    if not is_valid_email_address(email_value):
+        raise ValueError("Invalid email address.")
+    chat.notify_email = email_value
+    chat.updated_at = datetime.now(timezone.utc)
+    await update_chat(chat)
+    return True
+
+
+async def _prepare_guest_notify_email(chat: ChatSession, data: CreateChatMessage, user_id: str | None = None) -> None:
+    if user_id or data.sender_role != "public":
+        return
+    email_value = (data.notify_email or "").strip()
+    if not email_value:
+        return
+    if not settings.lnbits_email_notifications_enabled:
+        raise ValueError("Email notifications are disabled.")
+    if not is_valid_email_address(email_value):
+        raise ValueError("Invalid email address.")
+    if chat.notify_email == email_value:
+        return
+    chat.notify_email = email_value
+    chat.updated_at = datetime.now(timezone.utc)
+    await update_chat(chat)
+
+
+async def _notify_first_paid_message(
+    category: Categories,
+    chat: ChatSession,
+    message: ChatMessage,
+) -> None:
+    config = get_category_schedule_metadata(category)
+    if is_chat_available_from_config(config):
+        await _notify_new_chat(category, chat, None, message.message)
+    else:
+        await _notify_after_hours_admin(category, chat, message, None)
 
 
 async def create_public_chat(
@@ -283,6 +596,7 @@ async def _handle_lnurlp_drawdown(
     data: CreateChatMessage,
     sender_name: str,
     base_url: str | None,
+    after_hours: bool = False,
 ) -> ChatPaymentRequest:
     if chat.balance < amount:
         raise ValueError("Insufficient balance. Fund the chat to continue.")
@@ -298,9 +612,13 @@ async def _handle_lnurlp_drawdown(
         amount=amount,
         message_type="message",
     )
-    if not chat.messages:
+    if not chat.messages and not after_hours:
         await _notify_new_chat(category, chat, base_url, data.message)
     await _append_message(chat, message, unread=True)
+    if after_hours:
+        await _notify_after_hours_admin(category, chat, message, base_url)
+    else:
+        await _schedule_public_telegram_reminder(category, chat, message)
     await _broadcast_balance(chat.id, chat.balance)
     return ChatPaymentRequest(chat_id=chat.id, pending=False, message_id=message.id)
 
@@ -359,6 +677,7 @@ async def _send_free_message(
     sender_name: str,
     base_url: str | None,
     user_id: str | None = None,
+    after_hours: bool = False,
 ) -> ChatPaymentRequest:
     message = ChatMessage(
         id=urlsafe_short_hash(),
@@ -368,9 +687,13 @@ async def _send_free_message(
         message=data.message,
         created_at=datetime.now(timezone.utc),
     )
-    if not chat.messages:
+    if not chat.messages and not after_hours:
         await _notify_new_chat(category, chat, base_url, data.message)
     await _append_message(chat, message, unread=True)
+    if after_hours:
+        await _notify_after_hours_admin(category, chat, message, base_url)
+    elif data.sender_role == "public" and not user_id:
+        await _schedule_public_telegram_reminder(category, chat, message)
     if user_id:
         await _notify_chat_reply(category, chat, data.message, base_url)
     return ChatPaymentRequest(chat_id=chat.id, pending=False, message_id=message.id)
@@ -394,6 +717,9 @@ async def send_public_message(
 
     sender_name = _clean_name(data.sender_name, "anon")
     _ensure_participant(chat, data.sender_id, sender_name, data.sender_role)
+    after_hours = await _prepare_after_hours_email(category, chat, data, user_id=user_id)
+    if not after_hours:
+        await _prepare_guest_notify_email(chat, data, user_id=user_id)
 
     if user_id and chat.claimed_by_id and chat.claimed_by_id != user_id:
         claimed_name = chat.claimed_by_name or "another user"
@@ -404,12 +730,28 @@ async def send_public_message(
         amount = await _calculate_amount(category, data.message)
 
     if category.paid and category.lnurlp and amount > 0 and not user_id:
-        return await _handle_lnurlp_drawdown(category, chat, amount, data, sender_name, base_url)
+        return await _handle_lnurlp_drawdown(
+            category,
+            chat,
+            amount,
+            data,
+            sender_name,
+            base_url,
+            after_hours=after_hours,
+        )
 
     if category.paid and amount > 0 and not user_id:
         return await _create_payg_payment_request(category, chat, amount, data, sender_name)
 
-    return await _send_free_message(category, chat, data, sender_name, base_url, user_id=user_id)
+    return await _send_free_message(
+        category,
+        chat,
+        data,
+        sender_name,
+        base_url,
+        user_id=user_id,
+        after_hours=after_hours,
+    )
 
 
 async def send_admin_message(
@@ -432,6 +774,7 @@ async def send_admin_message(
     await _append_message(chat, message, unread=False)
     category = await get_categories_by_id(chat.categories_id)
     if category:
+        await _schedule_user_reply_email(category, chat, message)
         await _notify_chat_reply(category, chat, data.message)
     return message
 
@@ -478,6 +821,10 @@ async def mark_chat_resolved(chat_id: str, resolved: bool) -> ChatSession:
     chat.resolved = resolved
     chat.updated_at = datetime.now(timezone.utc)
     await update_chat(chat)
+    if resolved:
+        category = await get_categories_by_id(chat.categories_id)
+        if category:
+            await _notify_chat_resolved_public(category, chat)
     await _broadcast_chat(chat.id, {"type": "resolved", "resolved": resolved})
     return chat
 
@@ -492,6 +839,26 @@ async def mark_chat_seen(chat_id: str) -> ChatSession:
         await update_chat(chat)
         await _broadcast_chat(chat.id, {"type": "seen"})
     return chat
+
+
+async def mark_public_chat_seen(categories_id: str, chat_id: str) -> ChatSession:
+    chat = await get_chat_for_category(categories_id, chat_id)
+    if not chat:
+        raise ValueError("Chat not found.")
+    if chat.messages:
+        chat.public_last_seen_message_id = chat.messages[-1].get("id")
+        chat.public_last_seen_at = datetime.now(timezone.utc)
+        chat.updated_at = datetime.now(timezone.utc)
+        await update_chat(chat)
+        await _broadcast_chat(
+            chat.id,
+            {
+                "type": "public_seen",
+                "message_id": chat.public_last_seen_message_id,
+                "seen_at": chat.public_last_seen_at.isoformat(),
+            },
+        )
+    return _sanitize_public_chat(chat)
 
 
 async def request_tip(
@@ -600,8 +967,12 @@ async def _finalize_chat_payment(chat_payment: ChatPayment) -> bool:
     if not chat.messages:
         category = await get_categories_by_id(chat.categories_id)
         if category:
-            await _notify_new_chat(category, chat, None, chat_payment.message)
+            await _notify_first_paid_message(category, chat, message)
     await _append_message(chat, message, unread=True)
+    if message.sender_role == "public":
+        category = await get_categories_by_id(chat.categories_id)
+        if category:
+            await _schedule_public_telegram_reminder(category, chat, message)
     return True
 
 
@@ -618,6 +989,72 @@ async def payment_received_for_client_data(payment: Payment) -> bool:
         return False
 
     return await _finalize_chat_payment(chat_payment)
+
+
+async def _mark_job(job: ChatNotificationJob, status: str) -> None:
+    job.status = status
+    job.updated_at = datetime.now(timezone.utc)
+    await update_notification_job(job)
+
+
+async def _process_user_email_job(job: ChatNotificationJob) -> None:
+    chat = await get_chat(job.chat_id)
+    email = (chat.notify_email or "").strip() if chat else ""
+    if not chat or not email:
+        await _mark_job(job, "skipped")
+        return
+    if _message_seen_by_public(chat, job.message_id):
+        await _mark_job(job, "skipped")
+        return
+    category = await get_categories_by_id(job.categories_id)
+    if not category:
+        await _mark_job(job, "skipped")
+        return
+    message = next((m for m in chat.messages if m.get("id") == job.message_id), None)
+    if not message:
+        await _mark_job(job, "skipped")
+        return
+    values = _template_values(category, chat, message)
+    subject = _render_template(_category_template(category, "user_new_message_subject"), values)
+    body = _render_template(_category_template(category, "user_new_message_body"), values)
+    await send_email_notification([email], body, subject)
+    await _mark_job(job, "sent")
+
+
+async def _process_telegram_reminder_job(job: ChatNotificationJob) -> None:
+    chat = await get_chat(job.chat_id)
+    category = await get_categories_by_id(job.categories_id)
+    if not chat or not category or not category.notify_telegram:
+        await _mark_job(job, "skipped")
+        return
+    config = get_category_schedule_metadata(category)
+    if not is_chat_available_from_config(config):
+        await _mark_job(job, "skipped")
+        return
+    latest_public = _latest_unanswered_public_message(chat)
+    if not latest_public or latest_public.get("id") != job.message_id:
+        await _mark_job(job, "skipped")
+        return
+    message = (
+        f"No response after {TELEGRAM_REMINDER_DELAY_MINUTES} minutes: "
+        f'"{latest_public.get("message", "")}" {_build_chat_link(None, chat)}'
+    )
+    await send_telegram_notification(category.notify_telegram, message)
+    await _mark_job(job, "sent")
+
+
+async def process_due_notification_jobs() -> None:
+    jobs = await get_due_notification_jobs(datetime.now(timezone.utc))
+    for job in jobs:
+        try:
+            if job.job_type == "user_email":
+                await _process_user_email_job(job)
+            elif job.job_type == "telegram_reminder":
+                await _process_telegram_reminder_job(job)
+            else:
+                await _mark_job(job, "skipped")
+        except Exception as exc:
+            logger.warning(f"chat: notification job failed: {exc}")
 
 
 async def toggle_chat_claim(chat_id: str, user_id: str) -> ChatSession:

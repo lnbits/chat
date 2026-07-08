@@ -39,9 +39,12 @@ from .models import (
 )
 from .services import (
     create_public_chat,
+    get_category_schedule_metadata,
     get_public_chat,
     mark_chat_resolved,
     mark_chat_seen,
+    mark_public_chat_seen,
+    normalize_category_schedule_payload,
     request_tip,
     send_admin_message,
     send_public_message,
@@ -69,7 +72,11 @@ async def api_create_categories(
         payload["claim_split"] = max(0, min(float(payload["claim_split"]), 90))
     if payload.get("public_note") is None:
         payload["public_note"] = DEFAULT_PUBLIC_NOTE
-    categories = await create_categories(account_id.id, CreateCategories(**payload))
+    try:
+        payload = normalize_category_schedule_payload(payload)
+        categories = await create_categories(account_id.id, CreateCategories(**payload))
+    except ValueError as exc:
+        raise HTTPException(HTTPStatus.BAD_REQUEST, str(exc)) from exc
     return categories
 
 
@@ -92,7 +99,11 @@ async def api_update_categories(
         payload["claim_split"] = max(0, min(float(payload["claim_split"]), 90))
     if payload.get("public_note") is None:
         payload["public_note"] = DEFAULT_PUBLIC_NOTE
-    categories = await update_categories(Categories(**{**categories.dict(), **payload}))
+    try:
+        payload = normalize_category_schedule_payload(payload)
+        categories = await update_categories(Categories(**{**categories.dict(), **payload}))
+    except ValueError as exc:
+        raise HTTPException(HTTPStatus.BAD_REQUEST, str(exc)) from exc
     return categories
 
 
@@ -153,6 +164,7 @@ async def api_get_public_categories(categories_id: str) -> PublicCategories:
         payload["public_note"] = DEFAULT_PUBLIC_NOTE
     payload["notify_email_available"] = settings.lnbits_email_notifications_enabled
     payload["notify_nostr_available"] = settings.is_nostr_notifications_configured()
+    payload.update(get_category_schedule_metadata(categories))
     return PublicCategories(**payload)
 
 
@@ -264,6 +276,19 @@ async def api_update_chat_notifications(
         return SimpleStatus(success=True, message="Notifications updated.")
     except ValueError as exc:
         raise HTTPException(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+
+
+@chat_api_router.post(
+    "/api/v1/chats/{categories_id}/{chat_id}/public/seen",
+    name="Mark Chat Seen (Public)",
+    summary="Mark the public chat window as having seen the current messages.",
+    response_model=ChatSession,
+)
+async def api_mark_public_chat_seen(categories_id: str, chat_id: str) -> ChatSession:
+    try:
+        return await mark_public_chat_seen(categories_id, chat_id)
+    except ValueError as exc:
+        raise HTTPException(HTTPStatus.NOT_FOUND, str(exc)) from exc
 
 
 @chat_api_router.post(

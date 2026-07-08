@@ -21,6 +21,15 @@
             v-if="chatId"
             flat
             dense
+            icon="add_comment"
+            @click="startNewChat"
+          >
+            <q-tooltip>Start a new chat</q-tooltip>
+          </q-btn>
+          <q-btn
+            v-if="chatId"
+            flat
+            dense
             icon="open_in_new"
             :href="publicChatLink"
             target="_blank"
@@ -60,44 +69,69 @@
       </div>
       <q-separator></q-separator>
       <div class="chat-input q-pt-sm q-px-md q-pb-md">
-        <q-form @submit="sendMessage" class="row items-center">
+        <q-banner
+          v-if="isAfterHours && !authUser"
+          class="q-mb-sm bg-grey-2 text-grey-8"
+          rounded
+          dense
+        >
+          <div
+            class="text-subtitle2"
+            v-text="$t('chat.outside_working_hours')"
+          ></div>
+          <div
+            class="text-caption"
+            v-text="$t('chat.outside_working_hours_hint')"
+          ></div>
+        </q-banner>
+        <q-form @submit="sendMessage" class="row q-col-gutter-sm items-start">
+          <q-input
+            v-if="isAfterHours && !authUser"
+            dense
+            outlined
+            type="email"
+            v-model.trim="notificationForm.email"
+            class="col-12"
+            :label="$t('chat.email')"
+            :hint="$t('chat.email_required')"
+            :disable="sending"
+          ></q-input>
           <q-input
             dense
             outlined
             v-model.trim="messageInput"
-            class="col"
-            placeholder="Type a message..."
+            class="col-12 col-sm"
+            :placeholder="$t('chat.type_message')"
             :disable="sending"
             :maxlength="publicPageData.chars || null"
           ></q-input>
-          <q-btn
-            class="q-ml-sm"
-            color="primary"
-            unelevated
-            icon="send"
-            type="submit"
-            :disable="!messageInput || sending"
-          ></q-btn>
-          <q-btn
-            v-if="publicPageData.tips"
-            class="q-ml-sm"
-            outline
-            color="amber"
-            icon="paid"
-            @click="showTipDialog = true"
-          >
-            <q-tooltip>Send a tip</q-tooltip>
-          </q-btn>
-          <q-btn
-            v-if="publicPageData.paid && publicPageData.lnurlp"
-            class="q-ml-sm"
-            outline
-            color="primary"
-            icon="account_balance_wallet"
-            @click="openLnurlDialog"
-          >
-            <q-tooltip>Fund balance</q-tooltip>
-          </q-btn>
+          <div class="col-12 col-sm-auto row items-center q-gutter-x-sm">
+            <q-btn
+              color="primary"
+              unelevated
+              icon="send"
+              type="submit"
+              :disable="!canSendMessage"
+            ></q-btn>
+            <q-btn
+              v-if="publicPageData.tips"
+              outline
+              color="amber"
+              icon="paid"
+              @click="showTipDialog = true"
+            >
+              <q-tooltip>Send a tip</q-tooltip>
+            </q-btn>
+            <q-btn
+              v-if="publicPageData.paid && publicPageData.lnurlp"
+              outline
+              color="primary"
+              icon="account_balance_wallet"
+              @click="openLnurlDialog"
+            >
+              <q-tooltip>Fund balance</q-tooltip>
+            </q-btn>
+          </div>
         </q-form>
         <div v-if="pendingAmount" class="text-caption text-grey q-mt-sm">
           Payment required (<span v-text="pendingAmount"></span> sats)
@@ -137,7 +171,7 @@
             <q-btn
               unelevated
               color="primary"
-              label="Save notifications"
+              label="Save"
               :loading="notificationForm.saving"
               @click="saveNotifications"
             ></q-btn>

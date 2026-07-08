@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from lnbits.db import FilterModel
 from pydantic import BaseModel, Field
 
-DEFAULT_PUBLIC_NOTE = "we aim to reply instantly but it may take up to 24hrs for a reply"
+DEFAULT_PUBLIC_NOTE = "we aim to reply as soon as possible but it may take up to 24hrs for a reply"
 
 
 class CreateCategories(BaseModel):
@@ -21,6 +21,15 @@ class CreateCategories(BaseModel):
     notify_telegram: str | None = None
     notify_nostr: str | None = None
     notify_email: str | None = None
+    schedule_enabled: bool | None = False
+    schedule_timezone: str | None = "UTC"
+    schedule_days: str | list[int] | None = "0,1,2,3,4"
+    schedule_start: str | None = "09:00"
+    schedule_end: str | None = "17:00"
+    admin_after_hours_subject: str | None = None
+    admin_after_hours_body: str | None = None
+    user_new_message_subject: str | None = None
+    user_new_message_body: str | None = None
 
 
 class Categories(BaseModel):
@@ -40,6 +49,15 @@ class Categories(BaseModel):
     notify_telegram: str | None = None
     notify_nostr: str | None = None
     notify_email: str | None = None
+    schedule_enabled: bool | None = False
+    schedule_timezone: str | None = "UTC"
+    schedule_days: str | None = "0,1,2,3,4"
+    schedule_start: str | None = "09:00"
+    schedule_end: str | None = "17:00"
+    admin_after_hours_subject: str | None = None
+    admin_after_hours_body: str | None = None
+    user_new_message_subject: str | None = None
+    user_new_message_body: str | None = None
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -59,6 +77,12 @@ class PublicCategories(BaseModel):
     public_note: str | None = DEFAULT_PUBLIC_NOTE
     notify_email_available: bool | None = False
     notify_nostr_available: bool | None = False
+    schedule_enabled: bool | None = False
+    schedule_available: bool | None = True
+    schedule_timezone: str | None = None
+    schedule_start: str | None = None
+    schedule_end: str | None = None
+    schedule_days: list[int] = Field(default_factory=list)
 
 
 class CategoriesFilters(FilterModel):
@@ -123,6 +147,8 @@ class ChatSession(BaseModel):
     claimed_by_name: str | None = None
     notify_email: str | None = None
     notify_nostr: str | None = None
+    public_last_seen_message_id: str | None = None
+    public_last_seen_at: datetime | None = None
     participants: list[dict] = Field(default_factory=list)
     messages: list[dict] = Field(default_factory=list)
     last_message_at: datetime | None = None
@@ -141,6 +167,7 @@ class CreateChatMessage(BaseModel):
     sender_name: str
     sender_role: str
     message: str
+    notify_email: str | None = None
 
 
 class ChatNotifications(BaseModel):
@@ -169,6 +196,18 @@ class ChatPayment(BaseModel):
     payment_type: str = "message"
     paid: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ChatNotificationJob(BaseModel):
+    id: str
+    chat_id: str
+    categories_id: str
+    job_type: str
+    message_id: str
+    due_at: datetime
+    status: str = "pending"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TipRequest(BaseModel):

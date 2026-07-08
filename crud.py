@@ -4,6 +4,7 @@ from lnbits.helpers import urlsafe_short_hash
 from .models import (
     Categories,
     CategoriesFilters,
+    ChatNotificationJob,
     ChatPayment,
     ChatSession,
     ChatsFilters,
@@ -211,3 +212,40 @@ async def delete_empty_chats_before(cutoff: int) -> None:
               AND created_at < cast(:cutoff AS timestamp)
         """
     await db.execute(query, {"cutoff": cutoff})
+
+
+################################# Notification Jobs ###########################
+
+
+async def create_notification_job(job: ChatNotificationJob) -> ChatNotificationJob:
+    await db.insert("chat.notification_jobs", job)
+    return job
+
+
+async def get_notification_job(job_id: str) -> ChatNotificationJob | None:
+    return await db.fetchone(
+        "SELECT * FROM chat.notification_jobs WHERE id = :id",
+        {"id": job_id},
+        ChatNotificationJob,
+    )
+
+
+async def update_notification_job(job: ChatNotificationJob) -> ChatNotificationJob:
+    await db.update("chat.notification_jobs", job)
+    return job
+
+
+async def get_due_notification_jobs(
+    due_at,
+    limit: int = 25,
+) -> list[ChatNotificationJob]:
+    return await db.fetchall(
+        """
+            SELECT * FROM chat.notification_jobs
+            WHERE status = 'pending' AND due_at <= :due_at
+            ORDER BY due_at ASC
+            LIMIT :limit
+        """,
+        {"due_at": due_at, "limit": limit},
+        model=ChatNotificationJob,
+    )

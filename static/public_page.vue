@@ -6,7 +6,7 @@
   <div class="row q-col-gutter-md" style="height: calc(100vh - 64px)">
     <div class="col-12 col-lg-8 column" style="height: 100%">
       <q-card class="column no-wrap" style="height: 100%">
-        <q-card-section class="q-pa-md row items-center">
+        <q-card-section class="q-pa-md row items-center no-shrink">
           <div>
             <div class="text-h6" v-text="publicPageData.name || 'Chat'"></div>
             <div class="text-caption text-grey">
@@ -32,7 +32,7 @@
 
         <q-banner
           v-if="publicPageData.public_note"
-          class="q-mx-md q-mb-sm bg-grey-2 text-grey-8"
+          class="q-mx-md q-mb-sm bg-grey-2 text-grey-8 no-shrink"
           rounded
           dense
         >
@@ -66,25 +66,54 @@
           </div>
         </q-card-section>
 
-        <q-card-actions class="q-pa-md" align="stretch">
+        <q-card-actions class="q-pa-md no-shrink" align="stretch">
           <div class="col">
-            <q-form @submit="sendMessage" class="row no-wrap items-center">
+            <q-banner
+              v-if="isAfterHours && !authUser"
+              class="q-mb-sm bg-grey-2 text-grey-8"
+              rounded
+              dense
+            >
+              <div
+                class="text-subtitle2"
+                v-text="$t('chat.outside_working_hours')"
+              ></div>
+              <div
+                class="text-caption"
+                v-text="$t('chat.outside_working_hours_hint')"
+              ></div>
+            </q-banner>
+            <q-form
+              @submit="sendMessage"
+              class="row q-col-gutter-sm items-start"
+            >
+              <q-input
+                v-if="isAfterHours && !authUser"
+                dense
+                outlined
+                type="email"
+                v-model.trim="notificationForm.email"
+                class="col-12"
+                :label="$t('chat.email')"
+                :hint="$t('chat.email_required')"
+                :disable="sending"
+              ></q-input>
               <q-input
                 dense
                 outlined
                 v-model.trim="messageInput"
-                class="col"
-                placeholder="Type a message..."
+                class="col-12 col-sm"
+                :placeholder="$t('chat.type_message')"
                 :disable="sending"
                 :maxlength="publicPageData.chars || null"
-              />
-              <div class="col-auto row no-wrap items-center q-gutter-x-sm">
+              ></q-input>
+              <div class="col-12 col-sm-auto row items-center q-gutter-x-sm">
                 <q-btn
                   color="primary"
                   unelevated
                   icon="send"
                   type="submit"
-                  :disable="!messageInput || sending"
+                  :disable="!canSendMessage"
                 ></q-btn>
                 <q-btn
                   v-if="publicPageData.tips"
@@ -142,7 +171,7 @@
           <q-btn
             unelevated
             color="primary"
-            label="Save notifications"
+            label="Save"
             :loading="notificationForm.saving"
             @click="saveNotifications"
           ></q-btn>

@@ -72,12 +72,27 @@ window.PageChatEmbed = {
         this.notificationsEnabled &&
         !!this.publicPageData?.notify_nostr_available
       )
+    },
+    isAfterHours() {
+      return (
+        !!this.publicPageData?.schedule_enabled &&
+        !this.publicPageData?.schedule_available
+      )
+    },
+    canSendMessage() {
+      if (!this.messageInput || this.sending) return false
+      if (this.isAfterHours && !this.authUser && !this.notificationForm.email)
+        return false
+      return true
     }
   },
   methods: {
     toggleMinimize() {
       this.isMinimized = !this.isMinimized
       this.notifyParent()
+      if (!this.isMinimized) {
+        this.markPublicSeen()
+      }
     },
 
     notifyParent() {
@@ -140,27 +155,74 @@ window.PageChatEmbed = {
     },
 
     async ensureChat() {
-      const chatId = this.$route.params.chat
+      const chatId =
+        this.$route.params.chat ||
+        this.$q.localStorage.getItem(this.chatStorageKey())
       if (chatId) {
         this.chatId = chatId
-        await this.fetchChat()
-        this.loadNotificationForm()
-        return
+        try {
+          await this.fetchChat()
+          this.storeChatId()
+          this.updateChatUrl()
+          this.loadNotificationForm()
+          return
+        } catch (error) {
+          this.clearStoredChat()
+          console.warn(error)
+        }
       }
-      const payload = {
-        participant_id: this.participantId,
-        participant_name: this.participantName
+      await this.createChat()
+    },
+
+    chatStorageKey() {
+      return `lnbits.chat.embed.${this.categoriesId}.chat`
+    },
+
+    storeChatId() {
+      if (this.chatId) {
+        this.$q.localStorage.set(this.chatStorageKey(), this.chatId)
       }
+    },
+
+    clearStoredChat() {
+      this.$q.localStorage.remove(this.chatStorageKey())
+    },
+
+    async createChat() {
       const {data} = await LNbits.api.request(
         'POST',
         `/chat/api/v1/chats/${this.categoriesId}/public`,
         null,
-        payload
+        {
+          participant_id: this.participantId,
+          participant_name: this.participantName
+        }
       )
       this.chatId = data.id
       this.chatData = data
+      this.storeChatId()
       this.updateChatUrl()
       this.loadNotificationForm()
+    },
+
+    async startNewChat() {
+      this.clearStoredChat()
+      this.chatId = ''
+      this.messageInput = ''
+      this.pendingAmount = 0
+      this.closePaymentDialog()
+      if (this.chatSocket) {
+        this.chatSocket.close()
+        this.chatSocket = null
+      }
+      if (this.balanceSocket) {
+        this.balanceSocket.close()
+        this.balanceSocket = null
+      }
+      await this.createChat()
+      await this.fetchLnurl()
+      this.connectChatWebsocket()
+      this.connectBalanceWebsocket()
     },
 
     notificationStorageKey() {
@@ -216,7 +278,7 @@ window.PageChatEmbed = {
     },
 
     updateChatUrl() {
-      if (this.$route?.params?.chat) return
+      this.storeChatId()
       const query = window.location.search || ''
       const target = `/chat/embed/${this.categoriesId}/${this.chatId}${query}`
       window.history.replaceState({}, '', target)
@@ -228,6 +290,24 @@ window.PageChatEmbed = {
         `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/public`
       )
       this.chatData = data
+      await this.markPublicSeen()
+    },
+
+    async markPublicSeen() {
+      if (!this.chatId || document.hidden || this.isMinimized) return
+      try {
+        const {data} = await LNbits.api.request(
+          'POST',
+          `/chat/api/v1/chats/${this.categoriesId}/${this.chatId}/public/seen`,
+          null
+        )
+        if (data?.public_last_seen_message_id) {
+          this.chatData.public_last_seen_message_id =
+            data.public_last_seen_message_id
+        }
+      } catch (error) {
+        console.warn(error)
+      }
     },
 
     async toggleClaim() {
@@ -306,8 +386,12 @@ window.PageChatEmbed = {
         const payload = {
           sender_id: this.participantId,
           sender_name: this.participantName,
-          sender_role: 'public',
-          message: messageText
+          sender_role: this.authUser ? 'admin' : 'public',
+          message: messageText,
+          notify_email:
+            this.isAfterHours && !this.authUser
+              ? this.notificationForm.email || ''
+              : undefined
         }
         const {data} = await LNbits.api.request(
           'POST',
@@ -468,6 +552,9 @@ window.PageChatEmbed = {
                   role: message.sender_role
                 })
               }
+              if (message.sender_role === 'admin') {
+                this.markPublicSeen()
+              }
             }
           }
           if (payload.type === 'resolved') {
@@ -524,7 +611,13 @@ window.PageChatEmbed = {
     this.connectBalanceWebsocket()
     this.notifyParent()
   },
+  mounted() {
+    window.addEventListener('focus', this.markPublicSeen)
+    document.addEventListener('visibilitychange', this.markPublicSeen)
+  },
   beforeUnmount() {
+    window.removeEventListener('focus', this.markPublicSeen)
+    document.removeEventListener('visibilitychange', this.markPublicSeen)
     if (this.chatSocket) {
       this.chatSocket.close()
     }
