@@ -200,3 +200,80 @@ async def m011_chat_guest_notifications(db):
         ALTER TABLE chat.chats ADD COLUMN notify_nostr TEXT;
         """
     )
+
+
+async def m012_chat_schedules_seen_and_notification_jobs(db):
+    """
+    Add schedule/template fields, public seen fields, and notification jobs table.
+    """
+
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN schedule_enabled BOOLEAN DEFAULT FALSE;
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN schedule_timezone TEXT DEFAULT 'Europe/London';
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN schedule_days TEXT DEFAULT '0,1,2,3,4';
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN schedule_start TEXT DEFAULT '09:00';
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN schedule_end TEXT DEFAULT '17:00';
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN admin_after_hours_subject TEXT;
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN admin_after_hours_body TEXT;
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN user_new_message_subject TEXT;
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.categories ADD COLUMN user_new_message_body TEXT;
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.chats ADD COLUMN public_last_seen_message_id TEXT;
+        """
+    )
+    await db.execute(
+        """
+        ALTER TABLE chat.chats ADD COLUMN public_last_seen_at TIMESTAMP;
+        """
+    )
+    await db.execute(
+        f"""
+        CREATE TABLE chat.notification_jobs (
+            id TEXT PRIMARY KEY,
+            chat_id TEXT NOT NULL,
+            categories_id TEXT NOT NULL,
+            job_type TEXT NOT NULL,
+            message_id TEXT NOT NULL,
+            due_at TIMESTAMP NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMP NOT NULL DEFAULT {db.timestamp_now},
+            updated_at TIMESTAMP NOT NULL DEFAULT {db.timestamp_now}
+        );
+        """
+    )
