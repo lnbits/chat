@@ -33,7 +33,7 @@ async def test_template_defaults_are_available():
 def test_schedule_evaluation_with_timezone_and_days():
     config = {
         "schedule_enabled": "true",
-        "schedule_timezone": "UTC",
+        "schedule_timezone": "Europe/London",
         "schedule_days": "0,1,2,3,4",
         "schedule_start": "09:00",
         "schedule_end": "17:00",
@@ -55,7 +55,7 @@ async def test_category_schedule_metadata():
         CreateCategories(
             name=f"category-{urlsafe_short_hash()}",
             schedule_enabled=True,
-            schedule_timezone="UTC",
+            schedule_timezone="Europe/London",
             schedule_days="0,1,2",
             schedule_start="08:00",
             schedule_end="12:00",
@@ -65,7 +65,7 @@ async def test_category_schedule_metadata():
     metadata = get_category_schedule_metadata(category)
 
     assert metadata["schedule_enabled"] is True
-    assert metadata["schedule_timezone"] == "UTC"
+    assert metadata["schedule_timezone"] == "Europe/London"
     assert metadata["schedule_days"] == [0, 1, 2]
 
 

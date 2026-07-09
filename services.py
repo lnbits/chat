@@ -191,7 +191,7 @@ def _parse_schedule_time(value: str | None) -> time:
 
 
 def _validate_timezone(value: str | None) -> str:
-    timezone_name = (value or "UTC").strip() or "UTC"
+    timezone_name = (value or "Europe/London").strip() or "Europe/London"
     try:
         ZoneInfo(timezone_name)
     except ZoneInfoNotFoundError as exc:
@@ -241,7 +241,7 @@ def is_chat_available_from_config(
 def get_category_schedule_metadata(category: Categories) -> dict:
     config = {
         "schedule_enabled": "true" if category.schedule_enabled else "false",
-        "schedule_timezone": category.schedule_timezone or "UTC",
+        "schedule_timezone": category.schedule_timezone or "Europe/London",
         "schedule_days": category.schedule_days or "0,1,2,3,4",
         "schedule_start": category.schedule_start or "09:00",
         "schedule_end": category.schedule_end or "17:00",

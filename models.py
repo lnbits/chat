@@ -22,7 +22,7 @@ class CreateCategories(BaseModel):
     notify_nostr: str | None = None
     notify_email: str | None = None
     schedule_enabled: bool | None = False
-    schedule_timezone: str | None = "UTC"
+    schedule_timezone: str | None = "Europe/London"
     schedule_days: str | list[int] | None = "0,1,2,3,4"
     schedule_start: str | None = "09:00"
     schedule_end: str | None = "17:00"
@@ -50,7 +50,7 @@ class Categories(BaseModel):
     notify_nostr: str | None = None
     notify_email: str | None = None
     schedule_enabled: bool | None = False
-    schedule_timezone: str | None = "UTC"
+    schedule_timezone: str | None = "Europe/London"
     schedule_days: str | None = "0,1,2,3,4"
     schedule_start: str | None = "09:00"
     schedule_end: str | None = "17:00"
