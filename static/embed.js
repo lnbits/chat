@@ -154,6 +154,7 @@ window.PageChatEmbed = {
       }
     },
 
+    // Restore the previous embedded chat for this category, or create one if none exists.
     async ensureChat() {
       const chatId =
         this.$route.params.chat ||
