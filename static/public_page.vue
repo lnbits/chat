@@ -101,7 +101,7 @@
               <q-input
                 dense
                 outlined
-                v-model.trim="messageInput"
+                v-model="messageInput"
                 class="col-12 col-sm"
                 :placeholder="$t('chat.type_message')"
                 :disable="sending"

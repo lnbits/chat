@@ -317,7 +317,7 @@
               <q-input
                 dense
                 outlined
-                v-model.trim="messageInput"
+                v-model="messageInput"
                 class="col"
                 placeholder="Type a reply..."
                 :disable="sending"
