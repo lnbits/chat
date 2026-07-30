@@ -7,7 +7,7 @@ from lnbits.tasks import register_invoice_listener
 from loguru import logger
 
 from .crud import delete_empty_chats_before
-from .services import payment_received_for_client_data
+from .services import payment_received_for_client_data, process_due_notification_jobs
 
 
 async def wait_for_paid_invoices():
@@ -38,3 +38,12 @@ async def cleanup_empty_chats() -> None:
         except Exception as e:
             logger.warning(f"Error cleaning empty chats: {e}")
         await asyncio.sleep(60)
+
+
+async def dispatch_notification_jobs() -> None:
+    while settings.lnbits_running:
+        try:
+            await process_due_notification_jobs()
+        except Exception as e:
+            logger.warning(f"Error processing chat notification jobs: {e}")
+        await asyncio.sleep(30)

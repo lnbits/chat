@@ -3,36 +3,42 @@
     "path": "/chat/",
     "name": "PageChat",
     "template": "/chat/static/index.vue",
-    "component": "/chat/static/index.js"
+    "component": "/chat/static/index.js",
+    "i18n": "/chat/static/i18n"
   },
   {
     "path": "/chat/:id",
     "name": "PageChatPublic",
     "template": "/chat/static/public_page.vue",
-    "component": "/chat/static/public_page.js"
+    "component": "/chat/static/public_page.js",
+    "i18n": "/chat/static/i18n"
   },
   {
     "path": "/chat/:id/:chat",
     "name": "PageChatPublicChat",
     "template": "/chat/static/public_page.vue",
-    "component": "/chat/static/public_page.js"
+    "component": "/chat/static/public_page.js",
+    "i18n": "/chat/static/i18n"
   },
   {
     "path": "/chat/embed/:id",
     "name": "PageChatEmbed",
     "template": "/chat/static/embed.vue",
-    "component": "/chat/static/embed.js"
+    "component": "/chat/static/embed.js",
+    "i18n": "/chat/static/i18n"
   },
   {
     "path": "/chat/embed/:id/:chat",
     "name": "PageChatEmbedChat",
     "template": "/chat/static/embed.vue",
-    "component": "/chat/static/embed.js"
+    "component": "/chat/static/embed.js",
+    "i18n": "/chat/static/i18n"
   },
   {
     "path": "/chat/chats/:id",
     "name": "PageChatInstanceList",
     "template": "/chat/static/instance_list.vue",
-    "component": "/chat/static/instance_list.js"
+    "component": "/chat/static/instance_list.js",
+    "i18n": "/chat/static/i18n"
   }
 ]

@@ -18,10 +18,21 @@ window.PageChat = {
           claim_split: 0,
           guest_notifications: false,
           public_note:
-            'we aim to reply instantly but it may take up to 24hrs for a reply',
+            'we aim to reply as soon as possible but it may take up to 24hrs for a reply',
           notify_telegram: null,
           notify_nostr: null,
-          notify_email: null
+          notify_email: null,
+          schedule_enabled: false,
+          schedule_timezone: 'Europe/London',
+          schedule_days: [0, 1, 2, 3, 4],
+          schedule_start: '09:00',
+          schedule_end: '17:00',
+          admin_after_hours_subject: 'New chat message',
+          admin_after_hours_body:
+            'New chat message from {sender_name} ({guest_email})\n\n{message}\n\nOpen chat: {chat_url}',
+          user_new_message_subject: 'You have a new chat message',
+          user_new_message_body:
+            'You have a new reply from {category_name}.\n\n{message}\n\nOpen chat: {chat_url}'
         }
       },
       categoriesList: [],
@@ -91,6 +102,8 @@ window.PageChat = {
       },
       chatList: [],
       selectedChat: null,
+      timezoneOptionList: [],
+      filteredTimezoneOptions: [],
       chatSocket: null,
       messageInput: '',
       sending: false,
@@ -107,6 +120,18 @@ window.PageChat = {
       const rows = this.chatsTable.pagination.rowsNumber || 0
       const perPage = this.chatsTable.pagination.rowsPerPage || 1
       return Math.max(1, Math.ceil(rows / perPage))
+    },
+
+    scheduleDayOptions() {
+      return [
+        {label: this.$t('chat.monday'), value: 0},
+        {label: this.$t('chat.tuesday'), value: 1},
+        {label: this.$t('chat.wednesday'), value: 2},
+        {label: this.$t('chat.thursday'), value: 3},
+        {label: this.$t('chat.friday'), value: 4},
+        {label: this.$t('chat.saturday'), value: 5},
+        {label: this.$t('chat.sunday'), value: 6}
+      ]
     }
   },
   watch: {
@@ -144,6 +169,55 @@ window.PageChat = {
     }
   },
   methods: {
+    buildTimezoneOptions() {
+      let zones = []
+      if (Intl.supportedValuesOf) {
+        try {
+          zones = Intl.supportedValuesOf('timeZone')
+        } catch (_) {
+          zones = []
+        }
+      }
+      if (!zones.length) {
+        zones = [
+          'UTC',
+          'Africa/Johannesburg',
+          'America/Chicago',
+          'America/Denver',
+          'America/Los_Angeles',
+          'America/New_York',
+          'America/Sao_Paulo',
+          'Asia/Dubai',
+          'Asia/Hong_Kong',
+          'Asia/Singapore',
+          'Asia/Tokyo',
+          'Australia/Sydney',
+          'Europe/Amsterdam',
+          'Europe/Berlin',
+          'Europe/London',
+          'Europe/Madrid',
+          'Europe/Paris'
+        ]
+      }
+      if (!zones.includes('UTC')) {
+        zones = ['UTC', ...zones]
+      }
+      return zones.map(zone => ({label: zone, value: zone}))
+    },
+
+    filterTimezones(value, update) {
+      update(() => {
+        const needle = (value || '').toLowerCase()
+        if (!needle) {
+          this.filteredTimezoneOptions = this.timezoneOptionList
+          return
+        }
+        this.filteredTimezoneOptions = this.timezoneOptionList.filter(option =>
+          option.label.toLowerCase().includes(needle)
+        )
+      })
+    },
+
     getChatScrollEl() {
       const ref = this.$refs.adminChatScroll
       if (!ref) return null
@@ -189,15 +263,45 @@ window.PageChat = {
         claim_split: 0,
         guest_notifications: false,
         public_note:
-          'we aim to reply instantly but it may take up to 24hrs for a reply',
+          'we aim to reply as soon as possible but it may take up to 24hrs for a reply',
         notify_telegram: null,
         notify_nostr: null,
-        notify_email: null
+        notify_email: null,
+        schedule_enabled: false,
+        schedule_timezone: 'Europe/London',
+        schedule_days: [0, 1, 2, 3, 4],
+        schedule_start: '09:00',
+        schedule_end: '17:00',
+        admin_after_hours_subject: 'New chat message',
+        admin_after_hours_body:
+          'New chat message from {sender_name} ({guest_email})\n\n{message}\n\nOpen chat: {chat_url}',
+        user_new_message_subject: 'You have a new chat message',
+        user_new_message_body:
+          'You have a new reply from {category_name}.\n\n{message}\n\nOpen chat: {chat_url}'
       }
       this.categoriesFormDialog.show = true
     },
     async showEditCategoriesForm(data) {
-      this.categoriesFormDialog.data = {...data}
+      this.categoriesFormDialog.data = {
+        ...data,
+        schedule_enabled:
+          data.schedule_enabled === true || data.schedule_enabled === 'true',
+        schedule_days: (data.schedule_days || '0,1,2,3,4')
+          .toString()
+          .split(',')
+          .filter(item => item !== '')
+          .map(item => Number(item)),
+        admin_after_hours_subject:
+          data.admin_after_hours_subject || 'New chat message',
+        admin_after_hours_body:
+          data.admin_after_hours_body ||
+          'New chat message from {sender_name} ({guest_email})\n\n{message}\n\nOpen chat: {chat_url}',
+        user_new_message_subject:
+          data.user_new_message_subject || 'You have a new chat message',
+        user_new_message_body:
+          data.user_new_message_body ||
+          'You have a new reply from {category_name}.\n\n{message}\n\nOpen chat: {chat_url}'
+      }
       this.categoriesFormDialog.show = true
     },
     async saveCategories() {
@@ -331,6 +435,19 @@ window.PageChat = {
       return message.sender_role === 'admin'
     },
 
+    publicHasSeenMessage(message) {
+      if (!this.selectedChat || message.sender_role !== 'admin') return false
+      const seenId = this.selectedChat.public_last_seen_message_id
+      if (!seenId) return false
+      const messageIndex = this.selectedChat.messages.findIndex(
+        item => item.id === message.id
+      )
+      const seenIndex = this.selectedChat.messages.findIndex(
+        item => item.id === seenId
+      )
+      return messageIndex >= 0 && seenIndex >= messageIndex
+    },
+
     messageColor(message) {
       const palette = [
         'blue-1',
@@ -419,6 +536,10 @@ window.PageChat = {
             this.selectedChat.resolved = payload.resolved
             this.updateChatListEntry(this.selectedChat)
           }
+          if (payload.type === 'public_seen' && this.selectedChat) {
+            this.selectedChat.public_last_seen_message_id = payload.message_id
+            this.selectedChat.public_last_seen_at = payload.seen_at
+          }
         } catch (err) {
           console.warn('Chat websocket message failed', err)
         }
@@ -455,9 +576,10 @@ window.PageChat = {
       return `${window.location.origin}/chat/${chat.categories_id}/${chat.id}`
     },
 
-    showEmbedDialog(category) {
+    embedCode(category) {
+      if (!category) return ''
       const src = `${window.location.origin}/chat/embed/${category.id}?min=1&label=${encodeURIComponent('Chat to us')}`
-      this.embedDialog.iframe = `<div id="lnbits-chat-embed-root">
+      return `<div id="lnbits-chat-embed-root">
   <iframe id="lnbits-chat-embed-iframe" src="${src}" style="position:fixed;right:24px;bottom:24px;width:360px;height:56px;border:0;border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.35);z-index:9999;transition:height .2s ease;overflow:hidden;"></iframe>
 </div>
 <script>
@@ -472,6 +594,10 @@ window.PageChat = {
     });
   })();
 </script>`
+    },
+
+    showEmbedDialog(category) {
+      this.embedDialog.iframe = this.embedCode(category)
       this.embedDialog.show = true
     },
 
@@ -508,6 +634,8 @@ window.PageChat = {
     }
   },
   async created() {
+    this.timezoneOptionList = this.buildTimezoneOptions()
+    this.filteredTimezoneOptions = this.timezoneOptionList
     await this.fetchCurrencies()
     await this.getCategories()
     await this.getChats()

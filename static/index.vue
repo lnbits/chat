@@ -289,7 +289,18 @@
                 <q-badge color="amber">Tip</q-badge>
                 <span class="q-ml-sm" v-text="message.message"></span>
               </div>
-              <div v-else v-text="message.message"></div>
+              <div v-else>
+                <span v-text="message.message"></span>
+                <q-icon
+                  v-if="publicHasSeenMessage(message)"
+                  name="done_all"
+                  color="primary"
+                  size="16px"
+                  class="q-ml-xs"
+                >
+                  <q-tooltip>Seen by public user</q-tooltip>
+                </q-icon>
+              </div>
             </q-chat-message>
           </div>
           <div
@@ -306,7 +317,7 @@
               <q-input
                 dense
                 outlined
-                v-model.trim="messageInput"
+                v-model="messageInput"
                 class="col"
                 placeholder="Type a reply..."
                 :disable="sending"
@@ -442,6 +453,62 @@
           hint="Shown when the chat opens (optional)"
         ></q-input>
 
+        <q-expansion-item
+          icon="schedule"
+          :label="$t('chat.working_hours')"
+          dense
+          class="q-mt-sm"
+        >
+          <q-toggle
+            v-model="categoriesFormDialog.data.schedule_enabled"
+            color="primary"
+            :label="$t('chat.enable_working_hours')"
+          ></q-toggle>
+          <q-select
+            filled
+            dense
+            use-input
+            hide-selected
+            fill-input
+            input-debounce="0"
+            emit-value
+            map-options
+            v-model="categoriesFormDialog.data.schedule_timezone"
+            :options="filteredTimezoneOptions"
+            :label="$t('chat.timezone')"
+            :hint="$t('chat.timezone_hint')"
+            @filter="filterTimezones"
+          ></q-select>
+          <q-select
+            filled
+            dense
+            multiple
+            emit-value
+            map-options
+            v-model="categoriesFormDialog.data.schedule_days"
+            :options="scheduleDayOptions"
+            :label="$t('chat.working_days')"
+          ></q-select>
+          <div class="row q-col-gutter-md">
+            <q-input
+              class="col"
+              filled
+              dense
+              type="time"
+              v-model="categoriesFormDialog.data.schedule_start"
+              :label="$t('chat.start_time')"
+            ></q-input>
+            <q-input
+              class="col"
+              filled
+              dense
+              type="time"
+              v-model="categoriesFormDialog.data.schedule_end"
+              :label="$t('chat.end_time')"
+            ></q-input>
+          </div>
+        </q-expansion-item>
+
         <q-toggle
           v-model="categoriesFormDialog.data.guest_notifications"
           label="Allow guest reply notifications (a user will be notified when you reply)"
@@ -476,6 +543,54 @@
             v-model.trim="categoriesFormDialog.data.notify_email"
             label="Email address (comma separated)"
             hint="Optional notification target"
+          ></q-input>
+        </q-expansion-item>
+
+        <q-expansion-item
+          icon="mail"
+          :label="$t('chat.email_templates')"
+          dense
+          class="q-mt-sm"
+        >
+          <div
+            class="text-caption text-grey q-mt-sm"
+            v-text="$t('chat.placeholders')"
+          ></div>
+          <q-input
+            filled
+            dense
+            v-model.trim="categoriesFormDialog.data.admin_after_hours_subject"
+            :label="
+              $t('chat.admin_after_hours_email') + ' - ' + $t('chat.subject')
+            "
+          ></q-input>
+          <q-input
+            filled
+            dense
+            type="textarea"
+            autogrow
+            v-model="categoriesFormDialog.data.admin_after_hours_body"
+            :label="
+              $t('chat.admin_after_hours_email') + ' - ' + $t('chat.message')
+            "
+          ></q-input>
+          <q-input
+            filled
+            dense
+            v-model.trim="categoriesFormDialog.data.user_new_message_subject"
+            :label="
+              $t('chat.user_new_message_email') + ' - ' + $t('chat.subject')
+            "
+          ></q-input>
+          <q-input
+            filled
+            dense
+            type="textarea"
+            autogrow
+            v-model="categoriesFormDialog.data.user_new_message_body"
+            :label="
+              $t('chat.user_new_message_email') + ' - ' + $t('chat.message')
+            "
           ></q-input>
         </q-expansion-item>
 

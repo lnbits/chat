@@ -5,7 +5,7 @@ from lnbits.tasks import create_permanent_unique_task
 from loguru import logger
 
 from .crud import db
-from .tasks import cleanup_empty_chats, wait_for_paid_invoices
+from .tasks import cleanup_empty_chats, dispatch_notification_jobs, wait_for_paid_invoices
 from .views import chat_generic_router, chat_public_router
 from .views_api import chat_api_router
 from .views_lnurl import chat_lnurl_router
@@ -44,6 +44,11 @@ def chat_start():
     scheduled_tasks.append(task)
     cleanup_task = create_permanent_unique_task("ext_chat_cleanup", cleanup_empty_chats)
     scheduled_tasks.append(cleanup_task)
+    notification_task = create_permanent_unique_task(
+        "ext_chat_notifications",
+        dispatch_notification_jobs,
+    )
+    scheduled_tasks.append(notification_task)
 
 
 __all__ = [

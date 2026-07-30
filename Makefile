@@ -5,27 +5,27 @@ format: prettier black ruff
 check: mypy pyright checkblack checkruff checkprettier
 
 prettier:
-	uv run ./node_modules/.bin/prettier --write .
+	uv --project . --no-config run ./node_modules/.bin/prettier --write .
 pyright:
-	uv run ./node_modules/.bin/pyright
+	uv --project . --no-config run ./node_modules/.bin/pyright
 
 mypy:
-	uv run mypy .
+	uv --project . --no-config run mypy .
 
 black:
-	uv run black .
+	uv --project . --no-config run black .
 
 ruff:
-	uv run ruff check . --fix
+	uv --project . --no-config run ruff check . --fix
 
 checkruff:
-	uv run ruff check .
+	uv --project . --no-config run ruff check .
 
 checkprettier:
-	uv run ./node_modules/.bin/prettier --check .
+	uv --project . --no-config run ./node_modules/.bin/prettier --check .
 
 checkblack:
-	uv run black --check .
+	uv --project . --no-config run black --check .
 
 checkeditorconfig:
 	editorconfig-checker
@@ -33,7 +33,7 @@ checkeditorconfig:
 test:
 	PYTHONUNBUFFERED=1 \
 	DEBUG=true \
-	uv run pytest
+	uv --project . --no-config run pytest
 
 install-pre-commit-hook:
 	@echo "Installing pre-commit hook to git"
@@ -41,7 +41,7 @@ install-pre-commit-hook:
 	uv run pre-commit install
 
 pre-commit:
-	uv run pre-commit run --all-files
+	uv --project . --no-config run pre-commit run --all-files
 
 
 checkbundle:
