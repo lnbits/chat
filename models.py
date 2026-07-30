@@ -1,9 +1,16 @@
 from datetime import datetime, timezone
+from enum import Enum
 
 from lnbits.db import FilterModel
 from pydantic import BaseModel, Field
 
 DEFAULT_PUBLIC_NOTE = "we aim to reply as soon as possible but it may take up to 24hrs for a reply"
+
+
+class NostrDmType(str, Enum):
+    nip04 = "nip04"
+    nip17 = "nip17"
+    nip17b = "nip17b"
 
 
 class CreateCategories(BaseModel):
@@ -20,6 +27,7 @@ class CreateCategories(BaseModel):
     public_note: str | None = DEFAULT_PUBLIC_NOTE
     notify_telegram: str | None = None
     notify_nostr: str | None = None
+    notify_nostr_dm_type: NostrDmType = NostrDmType.nip04
     notify_email: str | None = None
     schedule_enabled: bool | None = False
     schedule_timezone: str | None = "Europe/London"
@@ -48,6 +56,7 @@ class Categories(BaseModel):
     public_note: str | None = DEFAULT_PUBLIC_NOTE
     notify_telegram: str | None = None
     notify_nostr: str | None = None
+    notify_nostr_dm_type: NostrDmType = NostrDmType.nip04
     notify_email: str | None = None
     schedule_enabled: bool | None = False
     schedule_timezone: str | None = "Europe/London"

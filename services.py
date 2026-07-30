@@ -1,6 +1,7 @@
 import json
 import math
 from datetime import datetime, time, timedelta, timezone
+from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from lnbits.core.crud.users import get_user
@@ -42,6 +43,9 @@ from .models import (
     CreateChat,
     CreateChatMessage,
 )
+
+if TYPE_CHECKING:
+    from lnbits.core.services.notifications import NostrDmType as CoreNostrDmType
 
 MAX_PARTICIPANTS = 10
 USER_EMAIL_DELAY_MINUTES = 5
@@ -288,6 +292,7 @@ async def _notify_new_chat(
         _parse_notify_emails(category.notify_email),
         message,
         "chat.new",
+        nostr_dm_types=[cast("CoreNostrDmType", category.notify_nostr_dm_type.value)],
     )
 
 

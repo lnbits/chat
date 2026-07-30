@@ -4,6 +4,11 @@ window.PageChat = {
   data: function () {
     return {
       currencyOptions: ['sat'],
+      nostrDmTypeOptions: [
+        {label: 'NIP-04', value: 'nip04'},
+        {label: 'NIP-17', value: 'nip17'},
+        {label: 'NIP-17B', value: 'nip17b'}
+      ],
       categoriesFormDialog: {
         show: false,
         data: {
@@ -21,6 +26,7 @@ window.PageChat = {
             'we aim to reply as soon as possible but it may take up to 24hrs for a reply',
           notify_telegram: null,
           notify_nostr: null,
+          notify_nostr_dm_type: 'nip04',
           notify_email: null,
           schedule_enabled: false,
           schedule_timezone: 'Europe/London',
@@ -266,6 +272,7 @@ window.PageChat = {
           'we aim to reply as soon as possible but it may take up to 24hrs for a reply',
         notify_telegram: null,
         notify_nostr: null,
+        notify_nostr_dm_type: 'nip04',
         notify_email: null,
         schedule_enabled: false,
         schedule_timezone: 'Europe/London',
@@ -284,6 +291,7 @@ window.PageChat = {
     async showEditCategoriesForm(data) {
       this.categoriesFormDialog.data = {
         ...data,
+        notify_nostr_dm_type: data.notify_nostr_dm_type || 'nip04',
         schedule_enabled:
           data.schedule_enabled === true || data.schedule_enabled === 'true',
         schedule_days: (data.schedule_days || '0,1,2,3,4')
