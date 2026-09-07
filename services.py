@@ -289,6 +289,7 @@ async def _notify_new_chat(
         message,
         "chat.new",
     )
+    chat.last_admin_notification_at = datetime.now(timezone.utc)
 
 
 async def _notify_chat_reply(
@@ -566,7 +567,41 @@ def _sanitize_public_chat(chat: ChatSession) -> ChatSession:
     return sanitized
 
 
-async def _append_message(chat: ChatSession, message: ChatMessage, unread: bool) -> ChatSession:
+async def _notify_persistent_message(chat: ChatSession, message: ChatMessage) -> None:
+    if message.sender_role != "public" or message.message_type != "message" or chat.resolved:
+        return
+    previous = [m for m in chat.messages if m.get("message_type", "message") == "message"]
+    if not previous or previous[0].get("sender_id") != message.sender_id:
+        return
+    if any(m.get("sender_role") == "admin" for m in previous):
+        return
+    category = await get_categories_by_id(chat.categories_id)
+    if not category or not category.persistent_notifications:
+        return
+    if not (category.notify_telegram or category.notify_nostr or category.notify_email):
+        return
+    last_notification = chat.last_admin_notification_at
+    if last_notification is None:
+        last_notification = datetime.fromisoformat(previous[0]["created_at"])
+    if last_notification.tzinfo is None:
+        last_notification = last_notification.replace(tzinfo=timezone.utc)
+    if message.created_at - last_notification < timedelta(minutes=15):
+        return
+    await send_notification(
+        category.notify_telegram,
+        [category.notify_nostr] if category.notify_nostr else [],
+        _parse_notify_emails(category.notify_email),
+        f'Unanswered chat: "{message.message}" {_build_chat_link(None, chat)}',
+        "chat.reminder",
+    )
+    chat.last_admin_notification_at = message.created_at
+
+
+async def _append_message(
+    chat: ChatSession, message: ChatMessage, unread: bool, notify_persistent: bool = True
+) -> ChatSession:
+    if notify_persistent:
+        await _notify_persistent_message(chat, message)
     payload = _serialize_message(message)
     chat.messages.append(payload)
     chat.last_message_at = message.created_at
@@ -614,7 +649,7 @@ async def _handle_lnurlp_drawdown(
     )
     if not chat.messages and not after_hours:
         await _notify_new_chat(category, chat, base_url, data.message)
-    await _append_message(chat, message, unread=True)
+    await _append_message(chat, message, unread=True, notify_persistent=not after_hours)
     if after_hours:
         await _notify_after_hours_admin(category, chat, message, base_url)
     else:
@@ -689,7 +724,7 @@ async def _send_free_message(
     )
     if not chat.messages and not after_hours:
         await _notify_new_chat(category, chat, base_url, data.message)
-    await _append_message(chat, message, unread=True)
+    await _append_message(chat, message, unread=True, notify_persistent=not after_hours)
     if after_hours:
         await _notify_after_hours_admin(category, chat, message, base_url)
     elif data.sender_role == "public" and not user_id:

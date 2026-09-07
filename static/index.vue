@@ -544,6 +544,23 @@
             label="Email address (comma separated)"
             hint="Optional notification target"
           ></q-input>
+          <q-toggle
+            v-if="
+              categoriesFormDialog.data.notify_telegram ||
+              categoriesFormDialog.data.notify_nostr ||
+              categoriesFormDialog.data.notify_email
+            "
+            v-model="categoriesFormDialog.data.persistent_notifications"
+            label="Persistent notifications"
+            color="primary"
+          ></q-toggle>
+          <div
+            v-if="categoriesFormDialog.data.persistent_notifications"
+            class="text-caption text-grey"
+          >
+            Notify again when the chat starter sends another message at least 15
+            minutes after the last notification, until support replies.
+          </div>
         </q-expansion-item>
 
         <q-expansion-item
