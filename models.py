@@ -18,6 +18,7 @@ class CreateCategories(BaseModel):
     claim_split: float | None = 0
     guest_notifications: bool | None = False
     public_note: str | None = DEFAULT_PUBLIC_NOTE
+    persistent_notifications: bool = False
     notify_telegram: str | None = None
     notify_nostr: str | None = None
     notify_email: str | None = None
@@ -46,6 +47,7 @@ class Categories(BaseModel):
     claim_split: float | None = 0
     guest_notifications: bool | None = False
     public_note: str | None = DEFAULT_PUBLIC_NOTE
+    persistent_notifications: bool = False
     notify_telegram: str | None = None
     notify_nostr: str | None = None
     notify_email: str | None = None
@@ -152,6 +154,7 @@ class ChatSession(BaseModel):
     participants: list[dict] = Field(default_factory=list)
     messages: list[dict] = Field(default_factory=list)
     last_message_at: datetime | None = None
+    last_admin_notification_at: datetime | None = None
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

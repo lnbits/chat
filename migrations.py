@@ -277,3 +277,8 @@ async def m012_chat_schedules_seen_and_notification_jobs(db):
         );
         """
     )
+
+
+async def m013_persistent_notifications(db):
+    await db.execute("ALTER TABLE chat.categories ADD COLUMN persistent_notifications BOOLEAN NOT NULL DEFAULT FALSE;")
+    await db.execute("ALTER TABLE chat.chats ADD COLUMN last_admin_notification_at TIMESTAMP;")

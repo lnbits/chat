@@ -17,6 +17,7 @@ window.PageChat = {
           denomination: 'sat',
           claim_split: 0,
           guest_notifications: false,
+          persistent_notifications: false,
           public_note:
             'we aim to reply as soon as possible but it may take up to 24hrs for a reply',
           notify_telegram: null,
@@ -262,6 +263,7 @@ window.PageChat = {
         denomination: 'sat',
         claim_split: 0,
         guest_notifications: false,
+        persistent_notifications: false,
         public_note:
           'we aim to reply as soon as possible but it may take up to 24hrs for a reply',
         notify_telegram: null,
