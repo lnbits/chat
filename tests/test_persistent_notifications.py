@@ -4,9 +4,14 @@ from uuid import uuid4
 
 import pytest
 
-from chat.crud import create_categories, create_chat, get_categories_by_id, get_chat
-from chat.models import ChatMessage, ChatSession, CreateCategories
-from chat.services import _append_message
+from chat.crud import (  # type: ignore[import]
+    create_categories,
+    create_chat,
+    get_categories_by_id,
+    get_chat,
+)
+from chat.models import ChatMessage, ChatSession, CreateCategories  # type: ignore[import]
+from chat.services import _append_message  # type: ignore[import]
 
 
 @pytest.mark.asyncio
