@@ -28,6 +28,7 @@ async def test_create_and_get_categories():
         chars=39,
         price_chars=78.00288769676463,
         denomination="sat",
+        notify_nostr_dm_type="nip17b",
     )
     categories_one = await create_categories(user_id, data)
     assert categories_one.id is not None
@@ -42,6 +43,7 @@ async def test_create_and_get_categories():
     assert categories_one.chars == data.chars
     assert categories_one.price_chars == data.price_chars
     assert categories_one.denomination == data.denomination
+    assert categories_one.notify_nostr_dm_type == "nip17b"
 
     data = CreateCategories(
         name="name_AwqF6ginw2mCnHfLCbEk7D",
