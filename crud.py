@@ -16,7 +16,7 @@ db = Database("ext_chat")
 
 ########################### Categories ############################
 async def create_categories(user_id: str, data: CreateCategories) -> Categories:
-    categories = Categories(**data.dict(), id=urlsafe_short_hash(), user_id=user_id)
+    categories = Categories(**data.model_dump(), id=urlsafe_short_hash(), user_id=user_id)
     await db.insert("chat.categories", categories)
     return categories
 

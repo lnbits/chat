@@ -64,7 +64,7 @@ async def api_create_categories(
     data: CreateCategories,
     account_id: AccountId = Depends(check_account_id_exists),
 ) -> Categories:
-    payload = data.dict()
+    payload = data.model_dump()
     if not payload.get("paid"):
         payload["lnurlp"] = False
         payload["claim_split"] = 0
@@ -91,7 +91,7 @@ async def api_update_categories(
         raise HTTPException(HTTPStatus.NOT_FOUND, "Categories not found.")
     if categories.user_id != account_id.id:
         raise HTTPException(HTTPStatus.FORBIDDEN, "You do not own this categories.")
-    payload = data.dict()
+    payload = data.model_dump()
     if not payload.get("paid"):
         payload["lnurlp"] = False
         payload["claim_split"] = 0
@@ -101,7 +101,7 @@ async def api_update_categories(
         payload["public_note"] = DEFAULT_PUBLIC_NOTE
     try:
         payload = normalize_category_schedule_payload(payload)
-        categories = await update_categories(Categories(**{**categories.dict(), **payload}))
+        categories = await update_categories(Categories(**{**categories.model_dump(), **payload}))
     except ValueError as exc:
         raise HTTPException(HTTPStatus.BAD_REQUEST, str(exc)) from exc
     return categories
@@ -158,7 +158,7 @@ async def api_get_public_categories(categories_id: str) -> PublicCategories:
     if not categories:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Categories not found.")
 
-    payload = categories.dict()
+    payload = categories.model_dump()
     payload["claim_split"] = categories.claim_split or 0
     if payload.get("public_note") is None:
         payload["public_note"] = DEFAULT_PUBLIC_NOTE
