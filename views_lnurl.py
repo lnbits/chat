@@ -13,7 +13,7 @@ from lnurl import (
     LnurlPayResponse,
     MilliSatoshi,
 )
-from pydantic import parse_obj_as
+from pydantic import TypeAdapter
 
 from .crud import get_categories_by_id, get_chat
 from .services import _resolve_category_wallet
@@ -66,7 +66,7 @@ async def api_lnurl_callback(
             "categories_id": chat.categories_id,
         },
     )
-    invoice = parse_obj_as(LightningInvoice, LightningInvoice(payment.bolt11))
+    invoice = TypeAdapter(LightningInvoice).validate_python(LightningInvoice(payment.bolt11))
     return LnurlPayActionResponse(pr=invoice, disposable=False)
 
 
@@ -83,7 +83,7 @@ async def api_lnurl_response(request: Request, chat_id: str) -> LnurlPayResponse
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Chat does not accept balance.")
 
     url = request.url_for("chat.api_lnurl_callback", chat_id=chat.id)
-    callback_url = parse_obj_as(CallbackUrl, str(url))
+    callback_url = TypeAdapter(CallbackUrl).validate_python(str(url))
 
     metadata = LnurlPayMetadata(json.dumps([["text/plain", f"Chat balance for {category.name}"]]))
     minimum, maximum = _chat_lnurl_limits_msat()

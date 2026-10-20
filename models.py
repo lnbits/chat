@@ -112,8 +112,8 @@ class CategoriesFilters(FilterModel):
         "updated_at",
     ]
 
-    created_at: datetime | None
-    updated_at: datetime | None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 ################################# Chats ###########################
@@ -230,5 +230,5 @@ class ChatsFilters(FilterModel):
         "updated_at",
     ]
 
-    created_at: datetime | None
-    updated_at: datetime | None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None

@@ -1,3 +1,4 @@
+from typing import cast
 from uuid import uuid4
 
 import pytest
@@ -33,7 +34,7 @@ async def test_create_and_get_categories():
     assert categories_one.id is not None
     assert categories_one.user_id == user_id
 
-    categories_one = await get_categories(user_id, categories_one.id)
+    categories_one = cast(Categories, await get_categories(user_id, categories_one.id))
     assert categories_one.id is not None
     assert categories_one.user_id == user_id
     assert categories_one.name == data.name
@@ -87,7 +88,7 @@ async def test_update_categories():
     assert categories_one.id is not None
     assert categories_one.user_id == user_id
 
-    categories_one = await get_categories(user_id, categories_one.id)
+    categories_one = cast(Categories, await get_categories(user_id, categories_one.id))
     assert categories_one.id is not None
     assert categories_one.user_id == user_id
     assert categories_one.name == data.name
@@ -108,7 +109,7 @@ async def test_update_categories():
     categories_updated = Categories(**{**categories_one.dict(), **data_updated.dict()})
 
     await update_categories(categories_updated)
-    categories_one = await get_categories_by_id(categories_one.id)
+    categories_one = cast(Categories, await get_categories_by_id(categories_one.id))
     assert categories_one.name == categories_updated.name
     assert categories_one.paid == categories_updated.paid
     assert categories_one.tips == categories_updated.tips

@@ -65,14 +65,14 @@ def _clean_name(value: str | None, fallback: str) -> str:
 
 
 def _serialize_participant(participant: ChatParticipant) -> dict:
-    data = participant.dict()
+    data = participant.model_dump()
     if participant.joined_at:
         data["joined_at"] = participant.joined_at.isoformat()
     return data
 
 
 def _serialize_message(message: ChatMessage) -> dict:
-    data = message.dict()
+    data = message.model_dump()
     if message.created_at:
         data["created_at"] = message.created_at.isoformat()
     return data
@@ -552,7 +552,7 @@ def _ensure_participant(chat: ChatSession, sender_id: str, sender_name: str, sen
 
 
 def _sanitize_public_chat(chat: ChatSession) -> ChatSession:
-    sanitized = chat.copy(deep=True)
+    sanitized = chat.model_copy(deep=True)
     sanitized.claimed_by_id = None
     sanitized.notify_email = None
     sanitized.notify_nostr = None
