@@ -1,11 +1,11 @@
 [project]
 name = "chat"
-version = "0.1.0"
-requires-python = ">=3.10,<3.13"
+version = "0.2.0"
+requires-python = ">=3.10,<3.14"
 description = "<<Paid chat and support>>"
 authors = []
 urls = { Homepage = "https://lnbits.com", Repository = "https://github.com/lnbits/chat" }
-dependencies = [ "lnbits>=1.4.0" ]
+dependencies = [ "lnbits>=1.7.0rc1" ]
 
 [tool.poetry]
 package-mode = false
@@ -20,6 +20,12 @@ dev = [
     "ruff>=0.3.2",
     "types-cffi>=1.16.0.20240331",
 ]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+
+[tool.uv]
+build-constraint-dependencies = ["scikit-build-core<0.10"]
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]

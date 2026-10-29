@@ -1,12 +1,12 @@
 {
   "id": "chat",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "name": "Chat",
   "repo": "https://github.com/lnbits/chat",
   "short_description": "Paid chat and support",
   "description": "",
   "tile": "/chat/static/image/chat.png",
-  "min_lnbits_version": "1.7.0",
+  "min_lnbits_version": "1.7.0-rc1",
   "contributors": [
     {
       "name": "LNbits community",
