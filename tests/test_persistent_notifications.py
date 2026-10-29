@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import cast
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -10,7 +11,7 @@ from chat.crud import (  # type: ignore[import]
     get_categories_by_id,
     get_chat,
 )
-from chat.models import ChatMessage, ChatSession, CreateCategories  # type: ignore[import]
+from chat.models import Categories, ChatMessage, ChatSession, CreateCategories  # type: ignore[import]
 from chat.services import _append_message  # type: ignore[import]
 
 
@@ -38,7 +39,7 @@ async def test_persistent_notification(
         uuid4().hex,
         CreateCategories(name="Support", persistent_notifications=enabled, notify_email="support@example.com"),
     )
-    saved_category = await get_categories_by_id(category.id)
+    saved_category = cast(Categories, await get_categories_by_id(category.id))
     assert saved_category.persistent_notifications == enabled
     now = datetime.now(timezone.utc)
     initial = now - timedelta(seconds=elapsed)
@@ -75,7 +76,10 @@ async def test_persistent_notification(
     saved = await get_chat(chat.id)
     assert saved is not None
     if expected:
-        assert abs((saved.last_admin_notification_at.replace(tzinfo=timezone.utc) - now).total_seconds()) < 1
+        assert (
+            abs((cast(datetime, saved.last_admin_notification_at).replace(tzinfo=timezone.utc) - now).total_seconds())
+            < 1
+        )
         assert notify.call_args.args[2] == ["support@example.com"]
         assert "Anyone there?" in notify.call_args.args[3]
         # A further message inside the cooldown must not send another reminder,
