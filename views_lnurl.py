@@ -31,6 +31,7 @@ def _chat_lnurl_limits_msat() -> tuple[int, int]:
     "/api/v1/lnurl/cb/{chat_id}",
     status_code=HTTPStatus.OK,
     name="chat.api_lnurl_callback",
+    openapi_extra={"x-lnbits-local-lnurl": True},
 )
 async def api_lnurl_callback(
     request: Request,
@@ -73,6 +74,7 @@ async def api_lnurl_callback(
 @chat_lnurl_router.get(
     "/lnurl/{chat_id}",
     name="chat.api_lnurl_response",
+    openapi_extra={"x-lnbits-local-lnurl": True},
 )
 async def api_lnurl_response(request: Request, chat_id: str) -> LnurlPayResponse:
     chat = await get_chat(chat_id)
