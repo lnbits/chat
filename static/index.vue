@@ -537,6 +537,17 @@
             hint="Optional notification target"
           ></q-input>
 
+          <q-select
+            class="q-mb-md"
+            filled
+            dense
+            emit-value
+            map-options
+            v-model="categoriesFormDialog.data.notify_nostr_dm_type"
+            :options="nostrDmTypeOptions"
+            label="Nostr direct message type"
+          ></q-select>
+
           <q-input
             filled
             dense

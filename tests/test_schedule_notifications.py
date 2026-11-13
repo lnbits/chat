@@ -11,12 +11,14 @@ from chat.crud import (  # type: ignore[import]
     get_notification_job,
 )
 from chat.models import (  # type: ignore[import]
+    Categories,
     ChatNotificationJob,
     ChatSession,
     CreateCategories,
 )
 from chat.services import (  # type: ignore[import]
     CHAT_TEMPLATE_DEFAULTS,
+    _notify_new_chat,
     _render_template,
     get_category_schedule_metadata,
     is_chat_available_from_config,
@@ -76,6 +78,33 @@ def test_template_rendering_keeps_unknown_placeholders():
     )
 
     assert rendered == "Hello Alice, keep {unknown}"
+
+
+@pytest.mark.asyncio
+async def test_new_chat_uses_selected_nostr_dm_type(monkeypatch):
+    sent = []
+
+    async def fake_send_notification(*args, **kwargs):
+        sent.append((args, kwargs))
+
+    monkeypatch.setattr("chat.services.send_notification", fake_send_notification)
+    category = Categories(
+        id=urlsafe_short_hash(),
+        user_id=uuid4().hex,
+        name="support",
+        notify_nostr="support@example.com",
+        notify_nostr_dm_type="nip17",
+    )
+    chat = ChatSession(
+        id=urlsafe_short_hash(),
+        categories_id=category.id,
+    )
+
+    await _notify_new_chat(category, chat, first_message="Hello")
+
+    assert len(sent) == 1
+    assert sent[0][0][1] == ["support@example.com"]
+    assert sent[0][1] == {"nostr_dm_types": ["nip17"]}
 
 
 async def _create_chat_with_admin_message(seen: bool) -> tuple[str, str, str]:

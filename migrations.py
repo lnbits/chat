@@ -275,6 +275,19 @@ async def m012_chat_schedules_seen_and_notification_jobs(db):
             created_at TIMESTAMP NOT NULL DEFAULT {db.timestamp_now},
             updated_at TIMESTAMP NOT NULL DEFAULT {db.timestamp_now}
         );
+    """
+    )
+
+
+async def m013_categories_nostr_dm_type(db):
+    """
+    Add the Nostr direct-message type to category notifications.
+    """
+
+    await db.execute(
+        """
+        ALTER TABLE chat.categories
+        ADD COLUMN notify_nostr_dm_type TEXT NOT NULL DEFAULT 'nip04';
         """
     )
 
